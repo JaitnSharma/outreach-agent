@@ -1,0 +1,25 @@
+# Accounts and domains this pipeline must never contact.
+#
+# Match is case-insensitive SUBSTRING against BOTH the company name and the
+# email domain. So "ramp" here also blocks "ramp.com" and "Ramp Financial".
+# Keep entries specific enough not to catch innocent names.
+#
+# Put here: direct competitors (we do not cold-pitch their staff), existing
+# customers, anyone who asked not to be contacted, and any domain where the
+# email finder has already failed repeatedly so retries stop burning sends.
+
+# --- direct competitors ---------------------------------------------------
+ramp.com
+brex.com
+navan.com
+pleo.io
+spendesk.com
+payhawk.com
+
+# --- existing customers (do not prospect, route to CS instead) -------------
+# (none yet — add as the book grows)
+
+# --- explicit do-not-contact ----------------------------------------------
+# (add any company that has asked to be removed)
+
+# --- add your own below ---------------------------------------------------

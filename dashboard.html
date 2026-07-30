@@ -1,0 +1,355 @@
+<title>Outreach Dashboard</title>
+<style>
+  :root {
+    --bg: #0b0d10;
+    --panel: #14171c;
+    --panel-2: #191d23;
+    --border: #262b33;
+    --text: #e8eaed;
+    --text-dim: #8b93a1;
+    --accent: #5b8def;
+    --green: #3ecf8e;
+    --amber: #e8b339;
+    --red: #e8546a;
+    --grey: #5a6272;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f4f5f7;
+      --panel: #ffffff;
+      --panel-2: #fbfbfc;
+      --border: #e2e5ea;
+      --text: #1b1f27;
+      --text-dim: #6b7280;
+      --accent: #3f6fd8;
+      --green: #1f9d64;
+      --amber: #b8790b;
+      --red: #c93850;
+      --grey: #8a92a0;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b0d10; --panel: #14171c; --panel-2: #191d23; --border: #262b33;
+    --text: #e8eaed; --text-dim: #8b93a1; --accent: #5b8def; --green: #3ecf8e;
+    --amber: #e8b339; --red: #e8546a; --grey: #5a6272;
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f5f7; --panel: #ffffff; --panel-2: #fbfbfc; --border: #e2e5ea;
+    --text: #1b1f27; --text-dim: #6b7280; --accent: #3f6fd8; --green: #1f9d64;
+    --amber: #b8790b; --red: #c93850; --grey: #8a92a0;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding: 28px 20px 60px;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+
+  h1 { font-size: 17px; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: var(--text-dim); font-size: 13px; margin-bottom: 22px; }
+
+  .top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .status-block { display: flex; align-items: center; gap: 12px; }
+  .dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--grey);
+    position: relative;
+    flex-shrink: 0;
+  }
+  .dot::after {
+    content: "";
+    position: absolute; inset: -6px;
+    border-radius: 50%;
+    border: 1.5px solid currentColor;
+    opacity: 0;
+  }
+  .dot.off { background: var(--grey); color: var(--grey); }
+  .dot.on { background: var(--accent); color: var(--accent); }
+  .dot.waiting { background: var(--amber); color: var(--amber); animation: breathe 2.6s ease-in-out infinite; }
+  .dot.bursting { background: var(--green); color: var(--green); }
+  .dot.bursting::after { animation: ping 1.1s cubic-bezier(0,0,0.2,1) infinite; opacity: 1; }
+
+  @keyframes breathe {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.45; transform: scale(0.85); }
+  }
+  @keyframes ping {
+    0% { transform: scale(0.6); opacity: 0.8; }
+    100% { transform: scale(1.8); opacity: 0; }
+  }
+
+  .status-text { display: flex; flex-direction: column; gap: 2px; }
+  .status-label { font-size: 15px; font-weight: 600; text-transform: capitalize; }
+  .status-detail { font-size: 12.5px; color: var(--text-dim); }
+
+  .controls { display: flex; align-items: center; gap: 14px; }
+
+  .switch {
+    position: relative;
+    width: 46px; height: 26px;
+    border-radius: 999px;
+    background: var(--border);
+    cursor: pointer;
+    transition: background 0.15s ease;
+    border: none;
+    padding: 0;
+  }
+  .switch.active { background: var(--green); }
+  .switch .knob {
+    position: absolute; top: 3px; left: 3px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #fff;
+    transition: transform 0.15s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  }
+  .switch.active .knob { transform: translateX(20px); }
+  .switch-label { font-size: 12.5px; color: var(--text-dim); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 720px) {
+    .grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  .tile {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 14px;
+  }
+  .tile .n { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+  .tile .l { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+  .tile.queue .n { color: var(--accent); }
+  .tile.bounced .n { color: var(--red); }
+
+  .action-row {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 20px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .action-desc { font-size: 13px; color: var(--text-dim); max-width: 480px; }
+  .btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 9px;
+    padding: 10px 18px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+  .btn-msg { font-size: 12px; margin-top: 6px; color: var(--text-dim); }
+
+  .attention {
+    background: var(--panel);
+    border: 1px solid var(--red);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 14px;
+  }
+  .attention h3 {
+    font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--red); margin: 0 0 8px;
+  }
+  .attention ul { margin: 0; padding-left: 18px; font-size: 13px; }
+  .attention li { margin-bottom: 3px; }
+  .attention .err-line { font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; color: var(--text-dim); }
+
+  .funnel {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+    flex-wrap: wrap;
+  }
+  .funnel .seg {
+    font-size: 11.5px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .funnel .seg b { color: var(--text); }
+
+  footer { text-align: center; font-size: 11.5px; color: var(--text-dim); margin-top: 24px; }
+</style>
+
+<div class="wrap">
+  <h1>Brace Outreach</h1>
+  <div class="sub" id="clock">—</div>
+
+  <div class="top-row">
+    <div class="status-block">
+      <div class="dot off" id="statusDot"></div>
+      <div class="status-text">
+        <div class="status-label" id="statusLabel">loading</div>
+        <div class="status-detail" id="statusDetail"></div>
+      </div>
+    </div>
+    <div class="controls">
+      <span class="switch-label">sends</span>
+      <button class="switch" id="pauseSwitch" onclick="togglePause()">
+        <div class="knob"></div>
+      </button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="tile"><div class="n" id="coldToday">—</div><div class="l">cold sent today</div></div>
+    <div class="tile"><div class="n" id="f1Today">—</div><div class="l">F1 sent today</div></div>
+    <div class="tile"><div class="n" id="f2Today">—</div><div class="l">F2 sent today</div></div>
+    <div class="tile bounced"><div class="n" id="bouncedToday">—</div><div class="l">bounced caught today</div></div>
+    <div class="tile queue"><div class="n" id="queueNew">—</div><div class="l">in queue (cold)</div></div>
+  </div>
+
+  <div id="attentionBlock"></div>
+
+  <div class="action-row">
+    <div>
+      <div style="font-weight:600; font-size:14px; margin-bottom:3px;">Run prospecting</div>
+      <div class="action-desc">Launches a background research agent — finds funded startups matching Brace&#39;s ICP, identifies finance decision-makers, and writes a signal-grounded hook for each.</div>
+      <div class="btn-msg" id="runMsg"></div>
+    </div>
+    <button class="btn" id="runBtn" onclick="runFindprospects()">Run</button>
+  </div>
+
+  <div class="funnel" id="funnel"></div>
+
+  <footer>auto-refreshes every 15s</footer>
+</div>
+
+<script>
+const STATUS_META = {
+  off:      { label: "Off",      detail: d => d.paused ? "paused" : "scheduler offline" },
+  on:       { label: "On",       detail: d => "idle — outside send windows" },
+  waiting:  { label: "Waiting",  detail: d => d.engine.mode + " window open" + (d.engine.next_burst ? (" — next burst " + d.engine.next_burst.split(" ").pop()) : "") },
+  bursting: { label: "Bursting", detail: d => "sending " + d.engine.mode + " now" },
+};
+
+async function fetchState() {
+  try {
+    const res = await fetch("/api/state");
+    const d = await res.json();
+    render(d);
+  } catch (e) {
+    document.getElementById("statusLabel").textContent = "unreachable";
+  }
+}
+
+function render(d) {
+  document.getElementById("clock").textContent = d.now;
+
+  const state = d.engine.state;
+  const meta = STATUS_META[state] || STATUS_META.off;
+  const dot = document.getElementById("statusDot");
+  dot.className = "dot " + state;
+  document.getElementById("statusLabel").textContent = meta.label;
+  document.getElementById("statusDetail").textContent = meta.detail(d);
+
+  const sw = document.getElementById("pauseSwitch");
+  sw.classList.toggle("active", !d.paused);
+
+  document.getElementById("coldToday").textContent = d.counts.cold_today;
+  document.getElementById("f1Today").textContent = d.counts.f1_today;
+  document.getElementById("f2Today").textContent = d.counts.f2_today;
+  document.getElementById("bouncedToday").textContent = d.counts.bounced_today;
+  document.getElementById("queueNew").textContent = d.counts.queue_new;
+
+  const funnelEl = document.getElementById("funnel");
+  const order = ["new", "cold", "F1", "F2", "replied", "sibling_replied", "failed"];
+  funnelEl.innerHTML = order
+    .filter(k => d.funnel[k] > 0)
+    .map(k => `<div class="seg">${k}: <b>${d.funnel[k]}</b></div>`)
+    .join("");
+
+  const att = document.getElementById("attentionBlock");
+  const hasFailed = d.failed_leads && d.failed_leads.length > 0;
+  const hasErrors = d.errors_recent && d.errors_recent.length > 0;
+  if (!hasFailed && !hasErrors) {
+    att.innerHTML = "";
+  } else {
+    let html = '<div class="attention"><h3>Needs attention</h3><ul>';
+    if (hasFailed) {
+      html += `<li>${d.failed_leads.length} lead(s) failed (all addresses bounced) — ` +
+        d.failed_leads.slice(0, 5).map(f => f.company).join(", ") +
+        (d.failed_leads.length > 5 ? ", …" : "") + "</li>";
+    }
+    if (hasErrors) {
+      html += `<li>${d.errors_recent.length} recent error/warning:<br>` +
+        d.errors_recent.slice(0, 4).map(e => `<span class="err-line">${e.ts} [${e.workflow}] ${e.msg}</span>`).join("<br>") +
+        "</li>";
+    }
+    html += "</ul></div>";
+    att.innerHTML = html;
+  }
+}
+
+async function togglePause() {
+  const sw = document.getElementById("pauseSwitch");
+  const wantPaused = sw.classList.contains("active"); // currently active (sends on) -> pause
+  sw.disabled = true;
+  try {
+    await fetch("/api/toggle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paused: wantPaused }),
+    });
+  } finally {
+    sw.disabled = false;
+    fetchState();
+  }
+}
+
+async function runFindprospects() {
+  const btn = document.getElementById("runBtn");
+  const msg = document.getElementById("runMsg");
+  btn.disabled = true;
+  btn.textContent = "Launching…";
+  try {
+    const res = await fetch("/api/run-findprospects", { method: "POST" });
+    const d = await res.json();
+    if (d.ok) {
+      btn.textContent = "Launched";
+      msg.textContent = "Background agent started — check `claude agents` for progress.";
+    } else {
+      btn.disabled = false;
+      btn.textContent = "Run";
+      msg.textContent = "Failed: " + (d.error || "unknown error");
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = "Run";
+    msg.textContent = "Failed: " + e;
+  }
+}
+
+fetchState();
+setInterval(fetchState, 15000);
+</script>

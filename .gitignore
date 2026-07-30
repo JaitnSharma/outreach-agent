@@ -1,0 +1,12 @@
+# Everything in this repo is invented demo data and is meant to be committed —
+# the database, the run CSVs and the logs are all part of how the agent works
+# and how you read what it did. Only two things stay out.
+
+# 1. Local machine config: the real sending address and the paths to the OAuth
+#    credential files. This is the only file that identifies a human.
+#    Start from config.example.json.
+config.json
+
+# 2. Python bytecode.
+__pycache__/
+*.pyc

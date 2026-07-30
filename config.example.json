@@ -1,0 +1,7 @@
+{
+  "_comment": "Copy this file to config.json and fill it in. config.json is gitignored and must never be committed. No secrets live here, only the sending identity and two paths to files that hold the OAuth credentials.",
+
+  "sender_email": "sdr@yourdomain.com",
+  "gmail_credentials_path": "C:\\path\\to\\.gmail-mcp\\credentials.json",
+  "gmail_oauth_keys_path": "C:\\path\\to\\.gmail-mcp\\gcp-oauth.keys.json"
+}
