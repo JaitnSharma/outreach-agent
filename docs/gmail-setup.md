@@ -22,8 +22,18 @@ Neither belongs in this repo. Keep them outside the project directory and point
 2. **Enable the Gmail API**: APIs & Services → Library → search "Gmail API" →
    Enable.
 3. **Configure the consent screen**: APIs & Services → OAuth consent screen.
-   Choose **External**, give it any app name, and add your own Google account
-   under **Test users**. You do not need to submit anything for verification.
+
+   - **User Type must be External.** If it says *Internal*, change it. Internal
+     only allows accounts inside the same Google Workspace organisation, and
+     signing in with a personal Gmail gives `Error 403: org_internal`.
+     If the option is greyed out, the project belongs to a Workspace org —
+     create a new project under a personal Google account instead.
+   - Give it any app name.
+   - **Add your Gmail address under Test users**, and save. Skipping this gives
+     `Error 403: access_denied` at sign-in, because an app in Testing mode only
+     admits accounts on that list.
+
+   You do not need to submit anything for verification.
 4. **Create the client**: APIs & Services → Credentials → Create Credentials →
    OAuth client ID → Application type **Desktop app**.
 
@@ -40,35 +50,40 @@ Neither belongs in this repo. Keep them outside the project directory and point
 python setup_gmail.py C:/Users/you/.outreach/gcp-oauth.keys.json
 ```
 
-It opens your browser, you approve access, and it writes `credentials.json`
-next to the keys file. Google will warn that the app is unverified — that is
-expected for a personal OAuth client. Click through via "Advanced".
+It opens your browser, you approve access, and it writes `credentials.json` next
+to the keys file. Google will warn that the app is unverified — expected for a
+personal OAuth client. Click through via "Advanced".
 
-The script prints the exact `config.json` to copy when it finishes.
+It then asks Google which mailbox you just authorised and **writes `config.json`
+for you**, so there is nothing to type. That is it.
 
-## 3. Point config at it
-
-```json
-{
-  "sender_email": "you@yourdomain.com",
-  "gmail_credentials_path": "C:/Users/you/.outreach/credentials.json",
-  "gmail_oauth_keys_path": "C:/Users/you/.outreach/gcp-oauth.keys.json"
-}
-```
-
-Use forward slashes, or double the backslashes. A single backslash is not valid
-JSON — the loader will tell you so explicitly rather than pretending the key is
-missing.
-
-Verify:
+## 3. Verify
 
 ```bash
-python -c "import gmail; print(gmail.sender_email())"
 python -c "import gmail; print(bool(gmail.get_access_token()))"
 ```
 
-The second one proves the whole chain works: config resolves, both files parse,
-and Google accepts the refresh token.
+`True` proves the whole chain: config resolves, both files parse, and Google
+accepts the refresh token.
+
+The generated `config.json` looks like this:
+
+```json
+{
+  "sender_email": "you@gmail.com",
+  "gmail_credentials_path": "C:/Users/you/.outreach/credentials.json",
+  "gmail_oauth_keys_path": "C:/Users/you/.outreach/gcp-oauth.keys.json",
+  "email_source": "pseudo"
+}
+```
+
+If you ever edit it by hand, use forward slashes or double the backslashes. A
+single backslash is not valid JSON — the loader says so explicitly rather than
+pretending the key is missing.
+
+`email_source` decides where prospect addresses come from. It starts at
+`pseudo`, which fabricates addresses that always bounce so nothing real can be
+contacted. See [../ONBOARD.md](../ONBOARD.md) for how to change it.
 
 ---
 

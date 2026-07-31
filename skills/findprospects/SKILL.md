@@ -222,19 +222,27 @@ downstream email finder at a stranger and nothing catches it before we send.
 Same discipline everywhere: if sources disagree on a title, write the safe
 subset ("Co-Founder", not a guess between CTO and COO).
 
---- STEP 5 — the pseudo-email ---
-This prototype has no email-finder wired in yet, so YOU generate the address:
+--- STEP 5 — the email address (DO NOT think about this one) ---
+You do not decide the address and you never write one yourself. Run this once
+per contact and use exactly what it prints:
 
-    <first_name_lowercased>@<company_slug>.pseudoemail.com
+    python email_source.py --first <first_name> --domain <company_domain>
 
-where <company_slug> is company_domain with the TLD and any "www." stripped, and
-any remaining dots removed. Examples:
-    Priya at mem0.ai        -> priya@mem0.pseudoemail.com
-    Rahul at zeptonow.com   -> rahul@zeptonow.pseudoemail.com
-    Sara at getdesk.co.uk   -> sara@getdesk.pseudoemail.com
+If it prints an address, that is the address. If it prints NOTHING, leave the
+Work Email field EMPTY. Empty is a correct answer here, not a failure to try
+harder.
 
-Lowercase everything. Strip spaces and punctuation from the first name. This is
-the ONE field that a real email-finder would replace.
+WHY YOU ARE NOT ALLOWED TO GUESS: firstname@company.com is right often enough
+to feel safe. It is not. Wrong addresses bounce, and a bounce rate over a few
+percent gets the sending account classified as spam by Gmail. That is permanent
+and it poisons every future campaign from that mailbox. One guessed address is
+not worth that, ever.
+
+The mode is configured, not chosen by you. It may be generating placeholders
+that always bounce, leaving the field blank for a human, or calling a real
+lookup service. All three are correct behaviour and none of them are your call.
+`python email_source.py --mode` will tell you which is active if you want to
+report it accurately.
 
 --- STEP 6 — write the copy ---
 Two fields, both in the register of context/voice.md.

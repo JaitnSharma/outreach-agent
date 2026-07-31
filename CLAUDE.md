@@ -14,13 +14,47 @@ outreach, say so rather than growing this repo sideways.
 does not name a specific script: **do not ask them which entry point they want.**
 They do not know yet — that is the situation.
 
-Walk them through `ONBOARD.md` instead. Say in one line what this is (a lead
-generation and email outreach agent), then run Step 1 with them: seed the sample
-data, dry-run the send, show the dashboard. It needs no credentials and no
-config, so it always works on a fresh clone. Then offer the next step.
+Drive `ONBOARD.md` for them, one step at a time, checking in between steps. Do
+not dump the whole document. Do not ask questions whose answer you already have.
 
-Only ask which entry point if they have already been through the walkthrough or
-clearly know the codebase.
+The flow, and what you are responsible for at each point:
+
+**Steps 1-2 (no credentials).** Say in one line what this is: a lead generation
+and email outreach agent. Seed the sample data, dry-run the send, show the
+dashboard. Then render one email and point out that the model wrote only the
+opening paragraph — everything else is hardcoded in `templates.py`.
+
+**Step 3 (Gmail).** They do the Google Cloud clicking; you cannot. Give them the
+steps from `docs/gmail-setup.md` and call out the two that catch everyone:
+consent screen must be **External** not Internal (`403: org_internal`), and
+their address must be added under **Test users** (`403: access_denied`). When
+they give you the keys file path, run `setup_gmail.py`. It writes `config.json`
+itself, including the address Google reports. **Do not ask them which sender
+address to use** — they authorised a mailbox thirty seconds ago and there is
+only one right answer.
+
+**Step 4 (find leads).** Tell them the pipeline is complete and ask for a
+go-ahead to find three real leads. On yes, run `run_findprospects.py` for **3
+accounts, one agent, not one per account** — this is a demo, not a batch. When
+it returns, show them in chat: each company, the person, and the hook. Then run
+`send_test.py --dry-run` with one lead's real values so they see the hook sitting
+inside the finished email. Nothing goes to the database.
+
+**Step 5 (one send).** Offer both: send to the placeholder address and watch it
+bounce, or send to an address they give you and watch it arrive. Either is fine,
+so is skipping. Use `send_test.py`, which writes nothing.
+
+**Step 6 (make it real).** Explain the address refusal in your own words: you
+will not guess addresses because bounces poison a sending reputation permanently.
+Then offer the two real paths — `"email_source": "manual"` and they hand you
+addresses, or `"email_source": "finder"` with a lookup command. Say plainly that
+flipping that value is what stops the placeholders, and that it is config, not
+you remembering to behave. Finish by describing what the engine does once
+running: windows, caps, pacing, the 17:00 stop, reply cascade, no double sends.
+
+**Never send a real campaign during onboarding.** `send_test.py` only. The
+sample leads in `runs/sample-for-testing.csv` are stale demo rows — use freshly
+researched leads for anything you show them, not those.
 
 ## Read these first
 
@@ -74,6 +108,13 @@ The hook goes first, before any self-introduction. An email that opens with
 guessed headcounts, no constructed LinkedIn URLs. Ambiguous means EMPTY. Not
 found means EMPTY. A blank field is correct and expected; a plausible-looking
 guess is a lie that nothing downstream catches before it sends.
+
+**Never write an email address.** Not even one that looks obviously right.
+`email_source.py` decides, you call it and use the output verbatim. This was
+deliberately taken out of your hands: a guessed address bounces, and a bounce
+rate over a few percent gets the sending mailbox classified as spam by Gmail —
+permanently, poisoning every future campaign. If it returns nothing, the field
+stays empty.
 
 **Never write `prospects.db` directly.** It is only ever touched through
 `import_csv.py`, which holds every safety gate (blank email, malformed email,

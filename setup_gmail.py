@@ -38,6 +38,10 @@ SCOPES = [
 
 AUTH_URI = "https://accounts.google.com/o/oauth2/v2/auth"
 FALLBACK_TOKEN_URI = "https://oauth2.googleapis.com/token"
+PROFILE_URI = "https://gmail.googleapis.com/gmail/v1/users/me/profile"
+
+HERE = Path(__file__).resolve().parent
+CONFIG_PATH = HERE / "config.json"
 
 _result = {}          # filled by the callback handler thread
 
@@ -196,16 +200,50 @@ def main():
         os.chmod(out_path, 0o600)      # best-effort; a no-op on some filesystems
     except OSError:
         pass
+    print(f"Wrote {out_path}")
 
-    print(f"\nWrote {out_path}")
-    print("\nNow point config.json at both files (forward slashes in JSON):\n")
-    print(json.dumps({
-        "sender_email": "you@yourdomain.com",
+    # Ask Google which mailbox was just authorised, rather than asking the human.
+    # They picked the account in the consent screen thirty seconds ago; making
+    # them type it again is a question with only one possible right answer.
+    sender = _whoami(payload.get("access_token"))
+
+    cfg = {
+        "sender_email": sender or "PUT_YOUR_ADDRESS_HERE",
         "gmail_credentials_path": str(out_path).replace("\\", "/"),
         "gmail_oauth_keys_path": str(keys_path).replace("\\", "/"),
-    }, indent=2))
-    print("\nThen check it:  python -c \"import gmail; print(gmail.sender_email())\"")
+        # Placeholder addresses that always bounce. Nothing real gets contacted
+        # until this is changed. See email_source.py.
+        "email_source": "pseudo",
+    }
+
+    if CONFIG_PATH.exists() and not args.force:
+        print(f"\n{CONFIG_PATH} already exists, leaving it alone.")
+        print("Merge this in yourself, or re-run with --force:\n")
+        print(json.dumps(cfg, indent=2))
+    else:
+        CONFIG_PATH.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
+        print(f"Wrote {CONFIG_PATH}")
+        if sender:
+            print(f"\nSending as: {sender}")
+        else:
+            print("\nCould not read the address from Google. Open config.json "
+                  "and set 'sender_email' by hand.")
+
+    print("\nVerify:  python -c \"import gmail; print(bool(gmail.get_access_token()))\"")
     return 0
+
+
+def _whoami(access_token):
+    """The address that just authorised. None if the call fails — not fatal,
+    the user can fill it in, and we say so rather than writing a wrong value."""
+    if not access_token:
+        return None
+    req = urllib.request.Request(
+        PROFILE_URI, headers={"Authorization": f"Bearer {access_token}"})
+    try:
+        return json.loads(urllib.request.urlopen(req).read()).get("emailAddress")
+    except Exception:
+        return None
 
 
 if __name__ == "__main__":

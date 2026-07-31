@@ -47,18 +47,17 @@ bounces.
 
 This is deliberate, and it is good news for you:
 
-- **You cannot accidentally email a real person with this repo as it ships.** Run
-  the demo as recklessly as you like.
-- You still get to see the real thing happen: real emails leaving your account,
-  correctly formatted, correctly threaded, landing in your Gmail Sent folder.
+- **You cannot accidentally email a real person with this repo as it ships.** Try
+  it as recklessly as you like.
+- You still see the real thing happen: real emails leaving your account,
+  correctly formatted and threaded, landing in your Gmail Sent folder.
 - Then you watch them bounce, and watch the system notice, prune the dead
-  addresses, and mark those leads dead. That is not the demo failing. That is the
+  addresses, and mark those leads dead. That is not the demo failing. That is
   bounce handling working, on live data.
 
-The fake address comes from **one function**, documented in the skill. Swap it
-for Clay, Apollo, Hunter, Prospeo or anything else and the same pipeline is
-suddenly sending to real inboxes. Nothing else changes. That is the intended
-handover point, and it is the only thing standing between this and production.
+Addresses come from **one file**, `email_source.py`, behind one config value.
+Point it at a real lookup service and the same pipeline sends to real inboxes.
+Nothing else changes. Step 6 covers it.
 
 ---
 
@@ -78,7 +77,8 @@ handover point, and it is the only thing standing between this and production.
 
 - **Send anything you have not seen.** Research ends at a database row. A human
   step sits between finding someone and emailing them.
-- **Find real email addresses.** Not until you wire in a finder. By design.
+- **Guess an email address.** Ever. Step 6 explains why that refusal matters more
+  than it sounds.
 - **Email a real person as shipped.** Every generated address bounces.
 - **Research and send in one go.** Different processes, different schedules, on purpose.
 - **Email anyone twice.** Every send is claimed in a write-ahead log first.
@@ -167,70 +167,42 @@ opening with "I'm X from Y" is deleted before the reader reaches the point.
 Now let us make it real.
 
 You need a Google Cloud OAuth client. **[docs/gmail-setup.md](docs/gmail-setup.md)**
-walks through it — about 5 minutes of clicking, once. It ends with you
-downloading one file.
+walks through it. Two settings there cause almost every failure, and both are
+called out: the consent screen must be **External**, not Internal, and your own
+Gmail address must be added under **Test users**.
 
-Then one command does the rest:
+It ends with you downloading one file. Then one command does the rest:
 
 ```bash
 python setup_gmail.py path/to/gcp-oauth.keys.json
 ```
 
-Your browser opens, you approve, and it writes `credentials.json` for you. It
-prints the exact `config.json` to copy.
+Your browser opens, you approve, and it writes `credentials.json`, asks Google
+which mailbox you just authorised, and writes `config.json` for you. Nothing to
+type.
 
 ```bash
-cp config.example.json config.json      # then paste in what the script printed
 python -c "import gmail; print(bool(gmail.get_access_token()))"
 ```
 
-`True` means the whole chain works.
+`True` means you are connected.
 
-> If it goes quiet a week later with an `invalid_grant`, that is a known Google
-> behaviour with unpublished consent screens. The fix is in the troubleshooting
+> If it goes quiet a week later with `invalid_grant`, that is a known Google
+> behaviour with unpublished consent screens. Fix is in the troubleshooting
 > section of `docs/gmail-setup.md`.
 
 ---
 
-# Step 4 — Send for real, and watch it bounce
+# Step 4 — Find three real leads
 
-Reset and reseed so you are sending fresh:
+**The pipeline is complete.** It just needs your go-ahead to go and find people
+who might actually buy.
 
-```bash
-rm prospects.db
-python import_csv.py runs/sample-for-testing.csv
-python send_cold.py --force
-```
+Say the word and it researches **three real companies** that fit Brace's customer
+profile, finds the person at each who could sign off on a purchase, and digs out
+one genuine, checkable reason to email them.
 
-Three emails just left your account, for real.
-
-**Go and look at your Gmail Sent folder.** They are there. Properly formatted,
-properly addressed, each one its own thread. This is exactly what a prospect
-would receive. Read one on your phone if you want to see how it lands.
-
-Now wait a minute or two and **check your inbox**. Three bounce notifications
-from mailer-daemon, because `pseudoemail.com` does not exist.
-
-Then let the system deal with it:
-
-```bash
-python bounce_sweep.py
-python manage.py list --status failed
-```
-
-It found the bounces, moved each dead address out of `mails` into `wrongMails`,
-and marked every lead `failed` because it has nowhere left to write.
-
-**Nothing went wrong here.** You just watched bounce reconciliation work
-correctly against live data, which is the part most outreach tooling gets wrong.
-Point a real email finder at it and this same path silently keeps your list clean
-instead of burning your sending reputation.
-
----
-
-# Step 5 — Find real leads
-
-This one needs the `claude` CLI on your PATH and signed in, plus a scraper:
+Needs the `claude` CLI signed in, plus the scraper:
 
 ```bash
 npm install -g defuddle-cli
@@ -242,68 +214,214 @@ Then:
 python run_findprospects.py
 ```
 
-This takes a few minutes and does real work: real web searches, real page reads,
-real companies. Watch `logs/findprospects.log`.
+A few minutes of real work: live searches, real pages, real companies. Watch
+`logs/findprospects.log`.
 
-When it finishes, open the CSV it wrote in `runs/`. Look at the `why_company`
-column. Every one of those hooks traces to something a person actually published
-— a funding round, a job posting, a headcount change.
+### Read what came back
 
-Then look for rows flagged `[LOW-SIGNAL]`, `[COMPETITOR]` or `[STALE]`. Those are
-the interesting ones. They are what the agent does when the happy path does not
-apply:
+Open the CSV in `runs/`. For each lead, three columns matter:
+
+- **`why_company`** — the hook. Every one traces to something a person actually
+  published: a funding round, a job posting, a headcount jump.
+- **`f2_content`** — the single line the final follow-up will carry.
+- **`Work Email`** — a placeholder. Step 6.
+
+Now see how a hook becomes an email:
+
+```bash
+python send_test.py --dry-run --to someone@example.com \
+  --name "<first_name from the CSV>" \
+  --company "<company from the CSV>" \
+  --hook "<why_company from the CSV>"
+```
+
+That prints the exact message that would go out. Your researched hook sits at the
+top; everything around it came from `templates.py` and is identical on every send.
+
+Watch for rows flagged `[LOW-SIGNAL]`, `[COMPETITOR]` or `[STALE]`. Those are the
+interesting ones — what the agent does when the happy path does not apply:
 
 | Situation | What it does |
 |---|---|
-| It cannot find a real signal | Says so and flags it. Does not invent one. |
-| Two companies share the name | Stops and reports the ambiguity rather than guessing |
+| No real signal found | Says so and flags it. Does not invent one. |
+| Two companies share a name | Stops and reports it rather than guessing |
 | They already use a competitor | Acknowledges it instead of pitching blind |
-| The only news is a year old | Flags it rather than congratulating a stale raise |
+| Only news is a year old | Flags it rather than congratulating a stale raise |
 
-The email addresses are still fake. The leads are real.
+Nothing has been written to the database. These are candidates, not a campaign.
+
+---
+
+# Step 5 — Watch one send, your choice
+
+Pick one. Either way the message appears in your Gmail Sent folder, and nothing
+touches the database.
+
+**Option A — watch it bounce.** Use the placeholder address straight from the CSV:
+
+```bash
+python send_test.py --to "<Work Email from the CSV>" \
+  --name "<first_name>" --company "<company>" --hook "<why_company>"
+```
+
+It sends, lands in Sent, and a minute later mailer-daemon replies in your Inbox.
+That is the bounce path working on live data — the same path that keeps a real
+list clean instead of quietly burning your sending reputation.
+
+**Option B — watch it arrive.** Use your own address and read it as a prospect
+would:
+
+```bash
+python send_test.py --to you@gmail.com \
+  --name "<first_name>" --company "<company>" --hook "<why_company>"
+```
+
+Open it on your phone. That is exactly what a real recipient sees.
+
+Skip this step entirely if you like. Nothing downstream depends on it.
 
 ---
 
-# Step 6 — Make it yours
+# Step 6 — Turn the engine on
 
-Three changes turn this from a demo into your pipeline.
+One thing stands between you and a running campaign: **real email addresses.**
 
-**1. Change who you are.** Edit `context/company.md` — what you sell, your ideal
-customer, who to contact, and the signals that mean someone is ready to buy. Then
-`context/voice.md` for how your emails should sound. The research agent reads
-both cold on every run. Nothing in the engine knows anything about expense
-management.
+### Why the agent will not find them for you
 
-**2. Change the email.** `templates.py`. Keep the four slots, replace the copy.
-Because the persistence layer never learns what the words mean, nothing else
-needs touching.
+It could guess. `firstname@company.com` is right often enough to be tempting.
 
-**3. Wire in real email addresses.** Open `skills/findprospects/SKILL.md` and find
-Step 5, the pseudo-email rule. Replace it with a call to your finder. Everything
-downstream already handles the result correctly, including the addresses that
-turn out to be wrong — you saw that in Step 4.
+It will not, and that is a deliberate refusal rather than a missing feature.
+Guessed addresses bounce. A bounce rate above a few percent is how a Gmail sender
+gets classified as spam, and that reputation damage is not undone by fixing the
+prompt afterwards. Every future campaign from that address suffers.
 
-Then set your safety rails: `blacklist.txt` for competitors, customers and
-anyone who asked to be left alone. Sending caps and pacing live at the top of
-`engine.py`. The 17:00 hard stop is there on purpose.
+So address resolution was taken away from the model entirely and put in code:
+**`email_source.py`**, behind one config value.
+
+```bash
+python email_source.py --mode
+```
+
+Three modes:
+
+| `email_source` | Behaviour |
+|---|---|
+| `pseudo` *(default)* | Fabricates addresses that always bounce. Nothing real is reachable. |
+| `manual` | Leaves addresses blank. You supply them. |
+| `finder` | Calls whatever lookup service you configure. |
+
+**This is what "it will stop filling placeholders" actually means.** Change one
+value and every future row changes. No prompt edit, no model behaviour to trust.
+
+### Option A — give it real addresses yourself
+
+Set `"email_source": "manual"` in `config.json`. Rows now come out with the
+address blank, and the importer skips blank rows on purpose, so a half-filled
+batch can never half-send.
+
+Add the leads you do have addresses for:
+
+```bash
+python manage.py add --company "Acme Ops" --designation "Head of Finance" \
+  --mails priya@acmeops.com --name Priya \
+  --why "<the hook from the CSV>" --f2 "<the f2_content from the CSV>"
+```
+
+### Option B — connect a finder
+
+Set `"email_source": "finder"` and give it a command:
+
+```json
+{
+  "email_source": "finder",
+  "email_finder_command": "myfinder --name {first} --domain {domain}"
+}
+```
+
+`{first}` and `{domain}` are substituted per contact. Print one address on
+stdout, or nothing. Clay, Apollo, Hunter, Prospeo, an MCP server, a shell script,
+anything that satisfies that contract works.
+
+A lookup returning nothing leaves the field blank rather than guessing. That is
+the entire point.
+
+### Then start it
+
+```bash
+python manage.py list --status new     # confirm what is queued
+pythonw scheduler.py                   # start the engine
+```
 
 ---
+
+## What the engine does once it is running
+
+It wakes every 60 seconds and mostly does nothing. The full behaviour:
+
+**Cold emails, 08:30 to 11:00, Mon-Fri, up to 50 a day.** Sends in bursts of at
+most 15, never splitting one company across a burst, then goes quiet for a random
+20 to 30 minutes. Spacing inside a burst is jittered and recomputed as it goes, so
+a slow API call tightens the rest instead of letting the burst drift late.
+
+**Bounce and reply sweep, 11:00.** Finds mailer-daemon messages, moves dead
+addresses out of the lead, and marks a lead `failed` once it has nowhere left to
+write. Then catches replies that landed on finished sequences, which the
+follow-up path would never revisit.
+
+**Follow-ups, 11:30 to 16:30, up to 100 a day.** F1 goes 48 hours after the cold
+email, F2 48 hours after F1, both in the original thread. Every F1 that is due
+goes before any F2, so more distinct people get at least one nudge.
+
+**Hard stop at 17:00.** Checked before every individual send, not just per burst.
+
+**Anyone replies, that company stops.** Not just that person, every colleague in
+the sequence. They are marked `sibling_replied`, kept distinct from `replied`, so
+you can always tell a real engagement from a cascaded one.
+
+**It never sends twice.** Every send is claimed in a write-ahead log first, keyed
+on lead and stage. If the process dies between calling Gmail and recording the
+result, that row is found later and reconciled against your actual Sent folder.
+It never guesses: guessing "sent" drops a prospect, guessing "not sent" emails
+them twice.
+
+**It survives interruption.** The gap between bursts lives on disk, not in memory.
+Crash it, reboot, close the laptop mid-burst, and the next tick reads where it was
+and carries on. At most one burst is lost, never a day.
+
+**Watch it:** `python dashboard.py` → http://127.0.0.1:8377
+
+**Stop it instantly:** create an empty file named `PAUSED` in this directory.
+Sends stop, the scheduler keeps running. Delete it to resume. A file, so it works
+at 2am without reading any code.
+
+---
+
+# You are done
+
+You have watched it research real companies, write a grounded email, send for
+real, and handle a bounce. You know where addresses come from and how to change
+that.
+
+To make it yours, three files:
+
+- **`context/company.md`** — what you sell, who buys it, what signals mean they
+  are ready. The research agent reads this cold on every run.
+- **`context/voice.md`** — how your emails should sound.
+- **`templates.py`** — the email itself. Keep the four slots, replace the copy.
+
+Then set your rails: `blacklist.txt` for competitors, customers and anyone who
+asked to be left alone. Caps and pacing at the top of `engine.py`.
+
+Nothing in the engine knows anything about expense management. Swap those files
+and the same machine runs your outbound instead.
 
 ## Where things live
 
 | Read this | For |
 |---|---|
 | `README.md` | Architecture, lifecycle, design notes |
-| `CLAUDE.md` | The operating rules, if you work on this with an AI agent |
+| `CLAUDE.md` | Operating rules, if you work on this with an AI agent |
 | `context/company.md` | Who we are and who we sell to |
 | `skills/findprospects/SKILL.md` | The research agent itself |
+| `email_source.py` | Where addresses come from, and how to change it |
 | `docs/gmail-setup.md` | Credentials, and the `invalid_grant` trap |
-
-## Two things to remember
-
-**The kill switch is a file.** Create an empty file called `PAUSED` in this
-directory and every send stops while the scheduler keeps running. Delete it to
-resume. It is a file so it works at 2am without reading any code.
-
-**`--dry-run` never sends.** Use it freely. `--force` only bypasses the
-time-of-day window, never the safety gates or the duplicate protection.
