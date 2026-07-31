@@ -14,47 +14,56 @@ outreach, say so rather than growing this repo sideways.
 does not name a specific script: **do not ask them which entry point they want.**
 They do not know yet — that is the situation.
 
-Drive `ONBOARD.md` for them, one step at a time, checking in between steps. Do
-not dump the whole document. Do not ask questions whose answer you already have.
+Open with a short greeting, two or three sentences on what this is, then **offer
+them the choice of where to start**. Do not start executing before they pick.
+Something like: a lead generation and outreach agent — it finds companies worth
+selling to, digs up one real reason to email the decision-maker, writes the
+email, and runs the sequence. Then offer: see it run with no setup, connect Gmail
+and go find real leads, or just have it explained.
 
-The flow, and what you are responsible for at each point:
+After that, drive `ONBOARD.md` one step at a time, checking in between. Never
+dump the document. Never ask a question you already have the answer to.
 
-**Steps 1-2 (no credentials).** Say in one line what this is: a lead generation
-and email outreach agent. Seed the sample data, dry-run the send, show the
-dashboard. Then render one email and point out that the model wrote only the
-opening paragraph — everything else is hardcoded in `templates.py`.
+Keep your narration short. One or two sentences per step on what happened and
+what it means, not a paragraph per command.
 
-**Step 3 (Gmail).** They do the Google Cloud clicking; you cannot. Give them the
-steps from `docs/gmail-setup.md` and call out the two that catch everyone:
-consent screen must be **External** not Internal (`403: org_internal`), and
-their address must be added under **Test users** (`403: access_denied`). When
+**Step 1 (no credentials).** Seed the sample data, dry-run the send. Point out
+that it kept both contacts at one company in the same burst and never touched
+Gmail. **Do not start the dashboard here** — it is noise this early, and a
+background server that outlives the step causes confusion. The dashboard belongs
+in Step 5, with the engine.
+
+**Step 2 (Gmail).** They do the Google Cloud clicking; you cannot. Give them the
+steps from `docs/gmail-setup.md` plainly, without dramatising any of them. When
 they give you the keys file path, run `setup_gmail.py`. It writes `config.json`
-itself, including the address Google reports. **Do not ask them which sender
-address to use** — they authorised a mailbox thirty seconds ago and there is
-only one right answer.
+itself, including the address Google reports. **Do not ask which sender address
+to use** — they authorised a mailbox thirty seconds ago and there is one right
+answer.
 
-**Step 4 (find leads).** Tell them the pipeline is complete and ask for a
+**Step 3 (find leads).** Tell them the pipeline is complete and ask for a
 go-ahead to find three real leads. On yes, run `run_findprospects.py` for **3
-accounts, one agent, not one per account** — this is a demo, not a batch. When
-it returns, show them in chat: each company, the person, and the hook. Then run
-`send_test.py --dry-run` with one lead's real values so they see the hook sitting
-inside the finished email. Nothing goes to the database.
+accounts using one agent, not one agent per account** — this is a demo, not a
+batch. When it returns, show them in chat: each company, the person, the hook.
+Then run `send_test.py --dry-run` with one lead's real values so they see that
+hook sitting inside the finished email, and note that everything around it is
+fixed in `templates.py`. Nothing goes to the database.
 
-**Step 5 (one send).** Offer both: send to the placeholder address and watch it
+**Step 4 (one send).** Offer both: send to the placeholder address and watch it
 bounce, or send to an address they give you and watch it arrive. Either is fine,
 so is skipping. Use `send_test.py`, which writes nothing.
 
-**Step 6 (make it real).** Explain the address refusal in your own words: you
+**Step 5 (make it real).** Explain the address refusal in your own words: you
 will not guess addresses because bounces poison a sending reputation permanently.
-Then offer the two real paths — `"email_source": "manual"` and they hand you
+Offer the two real paths — `"email_source": "manual"` and they hand you
 addresses, or `"email_source": "finder"` with a lookup command. Say plainly that
-flipping that value is what stops the placeholders, and that it is config, not
-you remembering to behave. Finish by describing what the engine does once
-running: windows, caps, pacing, the 17:00 stop, reply cascade, no double sends.
+flipping that value is what stops the placeholders, and that it is config rather
+than you remembering to behave. Then describe what the engine does once running:
+windows, caps, pacing, the 17:00 stop, reply cascade, no double sends. **Now**
+introduce the dashboard, as the thing they open daily to check on the mandate.
 
-**Never send a real campaign during onboarding.** `send_test.py` only. The
-sample leads in `runs/sample-for-testing.csv` are stale demo rows — use freshly
-researched leads for anything you show them, not those.
+**Never send a real campaign during onboarding.** `send_test.py` only. The rows
+in `runs/sample-for-testing.csv` are canned demo data for Step 1 — never show
+them as though they were researched, and never email them.
 
 ## Read these first
 

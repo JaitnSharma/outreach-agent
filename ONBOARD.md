@@ -1,8 +1,8 @@
 # Start here
 
-Follow this top to bottom. Every step has one command, what you will see, and
-what it means. Takes about 20 minutes, and you can stop after Step 2 and still
-understand the whole thing.
+Five steps, top to bottom. Each has one command, what you will see, and what it
+means. About 20 minutes end to end, and you can stop after Step 1 and still know
+what this thing is.
 
 ---
 
@@ -57,7 +57,7 @@ This is deliberate, and it is good news for you:
 
 Addresses come from **one file**, `email_source.py`, behind one config value.
 Point it at a real lookup service and the same pipeline sends to real inboxes.
-Nothing else changes. Step 6 covers it.
+Nothing else changes. Step 5 covers it.
 
 ---
 
@@ -77,13 +77,15 @@ Nothing else changes. Step 6 covers it.
 
 - **Send anything you have not seen.** Research ends at a database row. A human
   step sits between finding someone and emailing them.
-- **Guess an email address.** Ever. Step 6 explains why that refusal matters more
+- **Guess an email address.** Ever. Step 5 explains why that refusal matters more
   than it sounds.
 - **Email a real person as shipped.** Every generated address bounces.
 - **Research and send in one go.** Different processes, different schedules, on purpose.
 - **Email anyone twice.** Every send is claimed in a write-ahead log first.
 - **Send outside working hours.** Hard stop at 17:00, no exceptions, no override.
-- **Use an LLM at send time.** The model never writes an email. See Step 2.
+- **Use an LLM at send time.** The model never writes an email, it fills one
+  slot inside a fixed template. Open `templates.py` and you can see the whole
+  message sitting there as a Python string.
 
 ---
 
@@ -119,59 +121,18 @@ python send_cold.py --dry-run --force
 `--dry-run` means it never calls Gmail. `--force` skips the time-of-day window
 so you can run this at midnight.
 
-```bash
-python dashboard.py
-```
-
-Open http://127.0.0.1:8377. Funnel, today's counts, and a pause switch. Ctrl+C
-when done.
-
 **You just ran the entire send pipeline without credentials and without sending
 anything.** If you stop reading here, you have seen the core of it.
 
 ---
 
-# Step 2 — Read an email, and see who actually wrote it
-
-```bash
-python -c "import db, templates, re; h=templates.render_cold(db.load_placeholders(db.get_lead(1))); print(re.sub(r'<[^>]+>','',re.sub(r'<br\s*/?>','\n',h)))"
-```
-
-Look at the output. Now open `templates.py` next to it.
-
-Everything you just read — greeting, the product sentence, the call to action,
-the sign-off, the HTML — is **hardcoded**. The model wrote exactly one thing: the
-opening paragraph.
-
-That is the central constraint of this codebase. The model fills four bounded
-slots and never owns the structure:
-
-| Slot | What it carries |
-|---|---|
-| `name` | first name |
-| `company` | their company |
-| `why_company` | **the hook** — the one AI-written part |
-| `f2_content` | one line, final follow-up only |
-
-So a bad research run costs you one weak sentence, which a human notices. It can
-never cost you a malformed email, a broken link, a wrong sign-off, or a message
-that forgets which company sent it.
-
-Notice also that the hook comes **first**, before any self-introduction. An email
-opening with "I'm X from Y" is deleted before the reader reaches the point.
-
----
-
-# Step 3 — Connect your Gmail (5 minutes, once)
+# Step 2 — Connect your Gmail (5 minutes, once)
 
 Now let us make it real.
 
 You need a Google Cloud OAuth client. **[docs/gmail-setup.md](docs/gmail-setup.md)**
-walks through it. Two settings there cause almost every failure, and both are
-called out: the consent screen must be **External**, not Internal, and your own
-Gmail address must be added under **Test users**.
-
-It ends with you downloading one file. Then one command does the rest:
+walks through it and ends with you downloading one file. Then one command does
+the rest:
 
 ```bash
 python setup_gmail.py path/to/gcp-oauth.keys.json
@@ -193,7 +154,7 @@ python -c "import gmail; print(bool(gmail.get_access_token()))"
 
 ---
 
-# Step 4 — Find three real leads
+# Step 3 — Find three real leads
 
 **The pipeline is complete.** It just needs your go-ahead to go and find people
 who might actually buy.
@@ -224,7 +185,7 @@ Open the CSV in `runs/`. For each lead, three columns matter:
 - **`why_company`** — the hook. Every one traces to something a person actually
   published: a funding round, a job posting, a headcount jump.
 - **`f2_content`** — the single line the final follow-up will carry.
-- **`Work Email`** — a placeholder. Step 6.
+- **`Work Email`** — a placeholder. Step 5.
 
 Now see how a hook becomes an email:
 
@@ -252,7 +213,7 @@ Nothing has been written to the database. These are candidates, not a campaign.
 
 ---
 
-# Step 5 — Watch one send, your choice
+# Step 4 — Watch one send, your choice
 
 Pick one. Either way the message appears in your Gmail Sent folder, and nothing
 touches the database.
@@ -282,7 +243,7 @@ Skip this step entirely if you like. Nothing downstream depends on it.
 
 ---
 
-# Step 6 — Turn the engine on
+# Step 5 — Turn the engine on
 
 One thing stands between you and a running campaign: **real email addresses.**
 
@@ -388,11 +349,21 @@ them twice.
 Crash it, reboot, close the laptop mid-burst, and the next tick reads where it was
 and carries on. At most one burst is lost, never a day.
 
-**Watch it:** `python dashboard.py` → http://127.0.0.1:8377
+### Checking on it
 
-**Stop it instantly:** create an empty file named `PAUSED` in this directory.
-Sends stop, the scheduler keeps running. Delete it to resume. A file, so it works
-at 2am without reading any code.
+```bash
+python dashboard.py
+```
+
+http://127.0.0.1:8377. This is what you open once a day to see how the mandate is
+going: how many cold emails and follow-ups went out today, how many bounced,
+what is still queued, anything that needs a human, and a pause switch. It reads
+the database and never writes to it, so leaving it open is harmless.
+
+**Stop everything instantly:** create an empty file named `PAUSED` in this
+directory. Sends stop, the scheduler keeps running. Delete it to resume. It is a
+file so it works at 2am without reading any code. The dashboard's toggle does the
+same thing.
 
 ---
 

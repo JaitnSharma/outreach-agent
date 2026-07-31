@@ -22,25 +22,10 @@ Neither belongs in this repo. Keep them outside the project directory and point
 2. **Enable the Gmail API**: APIs & Services → Library → search "Gmail API" →
    Enable.
 3. **Configure the consent screen**: APIs & Services → OAuth consent screen.
-
-   - **User Type must be External.** If it says *Internal*, change it. Internal
-     only allows accounts inside the same Google Workspace organisation, and
-     signing in with a personal Gmail gives `Error 403: org_internal`.
-     If the option is greyed out, the project belongs to a Workspace org —
-     create a new project under a personal Google account instead.
-   - Give it any app name.
-   - **Add your Gmail address under Test users**, and save. Skipping this gives
-     `Error 403: access_denied` at sign-in, because an app in Testing mode only
-     admits accounts on that list.
-
-   You do not need to submit anything for verification.
+   Set User Type to **External** (not Internal), give it any app name, and add
+   your Gmail address under **Test users**. Nothing needs verification.
 4. **Create the client**: APIs & Services → Credentials → Create Credentials →
-   OAuth client ID → Application type **Desktop app**.
-
-   This type matters. A "Web application" client produces a JSON file with a
-   `web` key instead of `installed`, and this codebase reads `installed`.
-   `setup_gmail.py` will catch that and tell you, but it is easier to pick the
-   right one now.
+   OAuth client ID → Application type **Desktop app** (not Web application).
 5. Download the JSON. Save it somewhere outside this repo, e.g.
    `C:/Users/you/.outreach/gcp-oauth.keys.json`.
 
@@ -88,6 +73,14 @@ contacted. See [../ONBOARD.md](../ONBOARD.md) for how to change it.
 ---
 
 ## Troubleshooting
+
+**`Error 403: org_internal` at sign-in.** The consent screen is set to Internal,
+which only admits accounts in the same Workspace organisation. Change User Type
+to External. If that option is greyed out, the project belongs to a Workspace
+org — make a new one under a personal Google account.
+
+**`Error 403: access_denied` at sign-in.** Your address is not in the Test users
+list. OAuth consent screen → Test users → Add users → save, then re-run.
 
 **`invalid_grant` after about a week.** This is the one that will confuse you.
 While the consent screen is in **Testing** mode, Google expires refresh tokens
