@@ -61,16 +61,34 @@ _sched_cache = {"ts": 0.0, "result": None}
 
 
 def _check_scheduler_process():
-    # Matches both invocation styles: `brace.py engine` (how the CLI starts it)
-    # and a direct `outreach/scheduler.py` run. Matching only one of them makes
-    # the dashboard report "offline" while the engine is happily sending, which
-    # is worse than no indicator at all.
+    """Is an engine running FOR THIS CHECKOUT?
+
+    Two things have to be true, and the second one is the subtle one:
+
+    1. The command line looks like a scheduler - either `brace.py ... engine`
+       (how the CLI launches it) or a direct `scheduler.py` run.
+    2. It is running out of THIS directory.
+
+    Matching on the script name alone is what a naive version does, and it is
+    wrong on any machine with more than one copy of this repo, or any other
+    project that happens to have a `scheduler.py`. Caught exactly that in
+    testing: an unrelated scheduler elsewhere on the machine made a fresh clone
+    report its engine online while nothing was running. A false "online" is
+    worse than no indicator, because it is the signal you would trust when
+    wondering why nothing has sent.
+    """
+    # Embedded as a PowerShell single-quoted literal, so ' must be doubled.
+    # .Contains() rather than -like: a path can contain [ and ], which -like
+    # treats as a character class and would silently stop matching.
+    root = str(AGENT_ROOT).lower().replace("'", "''")
     try:
         cmd = [
             "powershell", "-NoProfile", "-Command",
             "Get-CimInstance Win32_Process -Filter \"Name like 'python%'\" | "
-            "Where-Object {$_.CommandLine -like '*brace.py* engine*' "
-            "-or $_.CommandLine -like '*scheduler.py*'} | "
+            "Where-Object {$_.CommandLine -and "
+            f"$_.CommandLine.ToLower().Contains('{root}') -and "
+            "($_.CommandLine -like '*engine*' "
+            "-or $_.CommandLine -like '*scheduler.py*')} | "
             "Select-Object -ExpandProperty ProcessId",
         ]
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
