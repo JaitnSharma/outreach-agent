@@ -10,9 +10,9 @@ import sqlite3
 import datetime
 from pathlib import Path
 
-# DB path is anchored to THIS file, never the process working directory,
-# so the scheduler / Task Scheduler can launch scripts from anywhere.
-DB_PATH = Path(__file__).resolve().parent / "prospects.db"
+# Anchored to the repo root via core.paths, never to the process working
+# directory, so the scheduler / Task Scheduler can launch jobs from anywhere.
+from core.paths import DB_PATH, ensure_dirs
 
 # Valid status values (mirrored in the CHECK constraint below).
 # new -> cold -> F1 -> F2 (sequence complete); replied/failed are terminal
@@ -101,6 +101,10 @@ def get_conn(db_path=None):
     """Open a connection. WAL + busy_timeout guard against a manual run
     overlapping a scheduled run. row_factory gives dict-like rows."""
     path = Path(db_path) if db_path else DB_PATH
+    # sqlite3 creates the file but not its parent directory, and a fresh clone
+    # has no data/ subdirectories at all. Without this the first connect dies
+    # with "unable to open database file", which reads like a permissions bug.
+    path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(path))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")

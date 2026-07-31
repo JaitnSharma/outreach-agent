@@ -8,11 +8,11 @@ against no daily cap, because nothing here is part of a sequence.
 Two things you might want to see:
 
     # watch it bounce, using a placeholder address
-    python send_test.py --to priya@acmeops.pseudoemail.com \
+    python brace.py test-send --to priya@acmeops.pseudoemail.com \
         --name Priya --company "Acme Ops" --hook "You were hired into ..."
 
     # watch it arrive, using your own inbox
-    python send_test.py --to you@gmail.com \
+    python brace.py test-send --to you@gmail.com \
         --name Priya --company "Acme Ops" --hook "You were hired into ..."
 
 Either way the message lands in your Gmail Sent folder, correctly formatted and
@@ -26,9 +26,9 @@ import re
 import sys
 import argparse
 
-import gmail
-import templates
-from email_source import is_pseudo
+from outreach import gmail
+from outreach import templates
+from prospecting.email_source import is_pseudo
 
 
 def to_text(html):

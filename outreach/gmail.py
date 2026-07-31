@@ -16,7 +16,7 @@ import urllib.request
 import urllib.parse
 import urllib.error
 
-import config
+from core import config
 
 
 def sender_email():

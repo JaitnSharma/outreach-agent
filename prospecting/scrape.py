@@ -3,9 +3,11 @@
 
 Zero tokens, no API keys. Writes one file per URL and prints a summary.
 
-    python scripts/scrape/scrape.py <url> [<url> ...]
-    python scripts/scrape/scrape.py --file urls.txt --out-dir archives/scrapes
-    python scripts/scrape/scrape.py <url> --format json
+    python brace.py scrape <url> [<url> ...]
+    python brace.py scrape --file urls.txt
+    python brace.py scrape <url> --format json
+
+Output defaults to data/runs/scrapes/.
 
 Notes for anyone editing this:
   - FORCE_COLOR=0 is mandatory; the CLI otherwise colorizes its own JSON.
@@ -24,7 +26,9 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-DEFAULT_OUT_DIR = Path("archives/scrapes")
+from core import paths
+
+DEFAULT_OUT_DIR = paths.SCRAPES_DIR
 DEFAULT_TIMEOUT = 90
 DEFAULT_WORKERS = 5
 

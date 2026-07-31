@@ -18,10 +18,10 @@ Only `company`, `Work Email`, `first_name`, `designation`, `why_company` and
 carried for the email-finder handoff and dropped here.
 
 Usage:
-    python import_csv.py runs/2026-07-30.csv
-    python import_csv.py <csv> --dry-run          # show what would happen, write nothing
-    python import_csv.py <csv> --db PATH           # target an alternate DB
-    python import_csv.py <csv> --subject "..."     # override the default subject
+    python brace.py import runs/2026-07-30.csv
+    python brace.py import <csv> --dry-run          # show what would happen, write nothing
+    python brace.py import <csv> --db PATH           # target an alternate DB
+    python brace.py import <csv> --subject "..."     # override the default subject
 """
 
 import csv
@@ -29,10 +29,9 @@ import sys
 import argparse
 from pathlib import Path
 
-import db
+from outreach import db
+from core.paths import BLACKLIST_PATH
 
-HERE = Path(__file__).resolve().parent
-BLACKLIST_PATH = HERE / "blacklist.txt"
 DEFAULT_SUBJECT = "Quick question about expenses at {company}"
 
 REQUIRED_COLUMNS = {"company", "first_name", "why_company", "f2_content", "Work Email"}
@@ -165,7 +164,7 @@ def main(argv=None):
             print(f"  - {label}: {reason}")
     if not args.dry_run and inserted:
         print("\nThese are status='new' and will send on the next scheduled cold run.")
-        print("Review:  python manage.py list --status new")
+        print("Review:  python brace.py leads list --status new")
     return 0
 
 

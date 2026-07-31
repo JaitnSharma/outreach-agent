@@ -11,17 +11,47 @@ reconciles its own bounces.
 Demonstrated for **Brace**, a fictional company selling corporate cards to funded
 startups. Brace is made up. The companies it researches are not.
 
+```bash
+python brace.py demo
+```
+
+No credentials, no config, nothing sent. That is the whole first step.
+
 > ### → New here? Read **[ONBOARD.md](ONBOARD.md)**.
 >
-> A stepped, 20 minute walkthrough: see it run with no setup, read an email and
-> find out who actually wrote it, connect your Gmail, send for real and watch the
-> bounces get handled, then find live leads. Start there, not here.
+> Five steps, each one command: see it run with no setup, connect Gmail, find a
+> real lead, watch one email send, then turn the engine on. Or open this repo in
+> Claude Code and say "walk me through it".
 
 **The leads are real. The email addresses are fake on purpose** — every one
 bounces, so you cannot accidentally email a stranger while trying this out. One
-documented function is where a real email finder drops in. See ONBOARD.md.
+config value is where a real email finder drops in.
 
 Nothing sends without the rows sitting reviewable in a database first.
+
+---
+
+## Commands
+
+Everything is a subcommand of `brace.py`. Run it bare to see this list.
+
+| | |
+|---|---|
+| `demo` | Seed sample leads and render them. No credentials needed. |
+| `setup` | Connect a Gmail account (one-time OAuth). |
+| `doctor` | Check prerequisites and configuration. Fixes nothing. |
+| `find` | Research real accounts and write a CSV. |
+| `import` | Push a research CSV into the database. |
+| `email-for` | Resolve one contact's address the way the agent must. |
+| `scrape` | Fetch pages as clean markdown. |
+| `send` | Cold-email pass over new leads. |
+| `followup` | Follow-up pass over leads already contacted. |
+| `sweep` | Scan Gmail for bounces and replies. |
+| `test-send` | Send exactly one email, recording nothing. |
+| `engine` | Start the scheduler. |
+| `dashboard` | Serve the status page on localhost:8377. |
+| `pause` / `resume` | Stop and restart sending. |
+| `status` / `leads` | Inspect the pipeline. |
 
 ---
 
@@ -29,32 +59,32 @@ Nothing sends without the rows sitting reviewable in a database first.
 
 ```
   ┌──────────────────────── RESEARCH (LLM) ────────────────────────┐
-  │  findprospects skill                                            │
+  │  brace.py find                                                  │
   │    orchestrator: qualify accounts (single-threaded, no dupes)   │
   │         │                                                       │
   │         ├── subagent per account ── scrape → signal → hook      │
   │         ├── subagent per account ── scrape → signal → hook      │
   │         └── subagent per account ── scrape → signal → hook      │
   │                     │                                           │
-  │              runs/<date>.csv                                    │
+  │              data/runs/<date>.csv                               │
   └─────────────────────┬───────────────────────────────────────────┘
-                        │  import_csv.py  (gates: email, dupe, blacklist, hook)
+                        │  brace.py import  (gates: email, dupe, blacklist, hook)
                         v
-                   prospects.db   ← the handoff. Reviewable. Nothing has sent.
+              data/prospects.db   ← the handoff. Reviewable. Nothing has sent.
                         │
   ┌─────────────────────┴──────── SEND (no LLM) ────────────────────┐
-  │  scheduler.py  (always-on, ticks every 60s)                     │
+  │  brace.py engine  (always-on, ticks every 60s)                  │
   │      │                                                          │
-  │      ├── send_cold.py    08:30-11:00   cap 50/day               │
-  │      ├── bounce_sweep.py 11:00         bounces + replies         │
-  │      └── followup.py     11:30-16:30   cap 100/day, F1 then F2  │
+  │      ├── send      08:30-11:00   cap 50/day                     │
+  │      ├── sweep     11:00         bounces + replies              │
+  │      └── followup  11:30-16:30   cap 100/day, F1 then F2        │
   │                    │                                            │
   │              engine.py  (pacing, bursts, idempotency, reconcile)│
   │                    │                                            │
   │        templates.py (fixed HTML) │ gmail.py (REST, stdlib only) │
   └────────────────────────────────────────────────────────────────┘
                         │
-                   dashboard.py → http://127.0.0.1:8377
+                  brace.py dashboard → http://127.0.0.1:8377
 ```
 
 **Why split?** The research half is slow, non-deterministic and expensive. The
@@ -66,8 +96,8 @@ sentence; it can never produce a malformed email or an unintended send.
 
 ## The harness rule
 
-`templates.py` owns the structure of every email in code. The research agent
-never writes an email. It fills four bounded slots:
+`outreach/templates.py` owns the structure of every email in code. The research
+agent never writes an email. It fills four bounded slots:
 
 | Slot | What it carries |
 |---|---|
@@ -110,15 +140,30 @@ Collapsing them would quietly overstate the reply rate.
 | Signal research | **Real.** Actual funding news, job posts, team pages. |
 | Hook writing | **Real.** Written per contact against that account's facts. |
 | Contact identification | **Real.** Names, titles, LinkedIn URLs where findable. |
-| **Email address** | **Mocked.** `<first>@<company-slug>.pseudoemail.com` |
+| **Email address** | **Mocked by default.** `<first>@<company-slug>.pseudoemail.com` |
 | Sending, threading, follow-ups, bounce/reply detection | **Real.** Live Gmail API. |
 
-The pseudo-email is the only mock. It is generated by one documented rule in
-`skills/findprospects/SKILL.md` (Step 5), and it is the single point where a
-real email-finder (Clay, Apollo, Hunter, Prospeo) drops in. Everything
-downstream is already production-shaped: pseudo addresses bounce on send, and
-`bounce_sweep.py` moves them to `wrongMails` and marks the lead `failed` — which
-is exactly the behaviour a real bad address gets.
+The address is the only mock, and it is a config value rather than a prompt
+instruction — see `prospecting/email_source.py`:
+
+```bash
+python brace.py email-for --mode
+```
+
+| `email_source` | Behaviour |
+|---|---|
+| `pseudo` | Placeholder that always bounces. The default. |
+| `manual` | Blank; a human supplies addresses. Blank rows are skipped at import. |
+| `finder` | Shells out to your lookup service (Clay, Apollo, Hunter, Prospeo). |
+
+Everything downstream is already production-shaped: pseudo addresses bounce on
+send, and `brace.py sweep` moves them to `wrongMails` and marks the lead
+`failed` — exactly what a real bad address gets.
+
+**The research agent is never allowed to write an address itself.** A guessed
+address bounces, and a bounce rate over a few percent gets the sending mailbox
+classified as spam by Gmail, permanently. That is not a prompt rule; the model
+has to shell out to `brace.py email-for` and use whatever it prints.
 
 ---
 
@@ -133,76 +178,81 @@ is exactly the behaviour a real bad address gets.
 
 Only Python is needed to explore the pipeline. The rest unlock one feature each.
 
----
-
-## Try it in two minutes
-
-**No credentials, no config, no setup.** A fresh clone can run the whole send
-pipeline end to end right now, because `--dry-run` never touches Gmail and config
-resolves lazily:
-
 ```bash
-python import_csv.py runs/sample-for-testing.csv   # seed 3 sample prospects
-python manage.py list --status new                 # see them in the queue
-python send_cold.py --dry-run --force              # render + batch, send nothing
-python dashboard.py                                # http://127.0.0.1:8377
+python brace.py doctor      # tells you which of these you have
 ```
-
-What each one shows you:
-
-1. **The gates.** Every row is checked for a blank or malformed address, a
-   duplicate already in the pipeline, a blacklisted company, and an empty hook.
-2. **The queue.** Three prospects across two companies, `status='new'`.
-3. **The engine.** Watch the log: it batches by company without splitting one
-   across a burst, then paces each send with adaptive jitter. It prints exactly
-   what it *would* send.
-4. **The dashboard.** Funnel, today's counts, and the pause switch.
-
-To see a rendered email:
-
-```bash
-python -c "import db, templates; print(templates.render_cold(db.load_placeholders(db.get_lead(1))))"
-```
-
-Reset any time with `rm prospects.db` (or `del prospects.db` on cmd).
 
 ---
 
-## Setup for sending
+## Layout
 
-Needed only once you want real email to go out. Get your Gmail credentials
-first — **[docs/gmail-setup.md](docs/gmail-setup.md)** walks through it and
-`setup_gmail.py` does the OAuth flow in one command.
-
-Then point config at them:
-
-```bash
-cp config.example.json config.json     # then edit it
 ```
+brace.py            every command lives here
+core/               paths, config, logging, kill switch
+  paths.py            every filesystem location, in one place
+  config.py           env var -> config.json -> loud error
+  runlog.py           file logging, PAUSED sentinel, single-instance locks
+prospecting/        research half - ends at a CSV, cannot send
+  research.py         invokes the skill headless via the `claude` CLI
+  scrape.py           batch page scraper (wraps `defuddle`)
+  email_source.py     the ONLY place an address is decided
+  import_csv.py       CSV -> DB, with every safety gate
+outreach/           send half - reads the DB, no model runs
+  engine.py           pacing, bursts, caps, idempotency, reconciliation
+  db.py               SQLite: leads + sends (write-ahead log) + run_days
+  gmail.py            Gmail REST, stdlib only, no SDK
+  templates.py        fixed email HTML - the harness
+  send_cold.py        thin provider: which leads, what they say
+  followup.py         same, for F1 and F2
+  bounce_sweep.py     daily inbox reconciliation
+  scheduler.py        the always-on ticker
+tools/              human-facing utilities
+  setup_gmail.py      one-shot OAuth flow
+  dashboard.py        local read-only dashboard + dashboard.html
+  manage.py           manual inspection and repair
+  send_test.py        one email, outside the pipeline
+context/            company.md (ICP, signals), voice.md (how the hook sounds)
+skills/             quicklead (one lead, fast), findprospects (production)
+data/               prospects.db, runs/, logs/, blacklist.txt, worked_accounts.csv
+docs/               gmail-setup.md
+```
+
+Every filesystem path comes from `core/paths.py`. Nothing derives a data path
+from its own `__file__`.
+
+---
+
+## Configuration
+
+Needed only once you want real email to go out.
+**[docs/gmail-setup.md](docs/gmail-setup.md)** walks through getting the
+credentials; `brace.py setup` does the OAuth flow and writes `config.json` for
+you.
 
 ```json
 {
   "sender_email": "sdr@yourdomain.com",
   "gmail_credentials_path": "C:/path/to/credentials.json",
-  "gmail_oauth_keys_path": "C:/path/to/gcp-oauth.keys.json"
+  "gmail_oauth_keys_path": "C:/path/to/gcp-oauth.keys.json",
+  "email_source": "pseudo"
 }
 ```
 
-Environment variables override the file, if you prefer them:
-`BRACE_SENDER_EMAIL`, `BRACE_GMAIL_CREDENTIALS`, `BRACE_GMAIL_OAUTH_KEYS`.
+Environment variables override the file: `BRACE_SENDER_EMAIL`,
+`BRACE_GMAIL_CREDENTIALS`, `BRACE_GMAIL_OAUTH_KEYS`.
 
 `config.json` is gitignored and must never be committed. It holds no secrets —
 only the sending address and two paths. The OAuth client secret and refresh
 token stay in those referenced files, outside this directory.
 
 Use forward slashes in JSON paths (or double the backslashes). A single
-backslash is not valid JSON, and the loader will tell you so explicitly rather
-than pretending the key is missing.
+backslash is not valid JSON, and the loader says so explicitly rather than
+pretending the key is missing.
 
 An unconfigured checkout imports and runs fine right up until it tries to send,
-then fails with a message naming the exact missing key. That is deliberate: a
-silent default here would be worse than a crash, because an empty sender address
-makes reply-detection match every message and quietly nudge people who already
+then fails naming the exact missing key. That is deliberate: a silent default
+would be worse than a crash, because an empty sender address makes
+reply-detection match every message and quietly nudge people who already
 answered.
 
 ---
@@ -211,54 +261,29 @@ answered.
 
 ```bash
 # 1. research + queue (needs `claude` on PATH)
-python run_findprospects.py            # or click "Run" in the dashboard
+python brace.py find --count 15
 
 # 2. inspect before anything sends
-python manage.py list --status new
-python manage.py show 3
+python brace.py leads list --status new
+python brace.py leads show 3
 
 # 3. see what would go out, without sending
-python send_cold.py --dry-run --force
+python brace.py send --dry-run --force
 
 # 4. send for real
-python send_cold.py --force            # or let scheduler.py fire it in-window
+python brace.py send --force        # or let the engine fire it in-window
 
 # 5. watch it
-python dashboard.py                    # http://127.0.0.1:8377
+python brace.py dashboard           # http://127.0.0.1:8377
 ```
 
-**Always-on mode:** run `pythonw scheduler.py` (or put a shortcut in the Windows
-Startup folder). It ticks every 60 seconds and fires each job inside its window.
+**Always-on mode:** `python brace.py engine` (or `pythonw`, or a shortcut in the
+Windows Startup folder). It ticks every 60 seconds and fires each job inside its
+window.
 
-**Stop sends instantly:** create an empty file named `PAUSED` in this directory.
-The senders no-op; the scheduler keeps running. Delete it to resume. The
-dashboard's toggle does exactly this.
-
----
-
-## Files
-
-| File | Role |
-|---|---|
-| `skills/findprospects/SKILL.md` | The research agent. Orchestration, ICP filters, edge cases. |
-| `context/company.md` | Who Brace is, the ICP, who to contact, the four buying signals. |
-| `context/voice.md` | How the hook must sound. Examples first. |
-| `templates.py` | Fixed email HTML. The harness. |
-| `engine.py` | Burst pacing, windows, daily caps, idempotency, reconciliation. |
-| `db.py` | SQLite. `leads` + `sends` (write-ahead log) + `run_days`. |
-| `gmail.py` | Gmail REST. Stdlib only, no SDK. |
-| `config.py` + `config.example.json` | Sending identity and credential paths. No secrets in source. |
-| `setup_gmail.py` | One-shot OAuth flow. Writes `credentials.json`. Run once. |
-| `docs/gmail-setup.md` | How to get Gmail credentials, and the `invalid_grant` gotcha. |
-| `send_cold.py` / `followup.py` | Thin providers: which leads, what they say. |
-| `bounce_sweep.py` | Daily inbox reconciliation: bounces, then late replies. |
-| `scheduler.py` | The always-on ticker. |
-| `import_csv.py` | CSV → DB, with every safety gate. |
-| `manage.py` | Manual inspection and repair. |
-| `dashboard.py` + `dashboard.html` | Local read-only dashboard. |
-| `scrape.py` | Batch page scraper (wraps `defuddle`). |
-| `blacklist.txt` | Never-contact accounts and domains. |
-| `worked_accounts.csv` | Dedupe memory across runs. |
+**Stop sends instantly:** `python brace.py pause`. That creates an empty `PAUSED`
+file at the repo root; the senders no-op and the scheduler keeps running. Delete
+the file or run `resume` to continue. The dashboard's toggle does the same thing.
 
 ---
 
@@ -283,3 +308,8 @@ leads in the database.
 **A blank field is correct; a plausible guess is not.** The research agent is
 forbidden from constructing a LinkedIn URL. Missing data propagates as missing,
 because nothing downstream re-verifies it before we act on it.
+
+**Research profiles are chosen in code, not by the model.** `find --profile
+quick` runs a one-account, six-search skill; the default runs the production
+batch. Asking a production skill nicely for a small run does not work — it
+optimises for quality and spends accordingly.

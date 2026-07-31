@@ -3,7 +3,7 @@ config.py — runtime configuration. No credentials and no personal data in sour
 
 Every value resolves in this order:
   1. an environment variable
-  2. config.json beside this file (gitignored, never committed)
+  2. config.json at the repo root (gitignored, never committed)
   3. nothing — and the caller raises a clear error rather than guessing
 
 Nothing here holds a secret. `config.json` holds only the sending address and
@@ -20,10 +20,8 @@ or:
 
 import os
 import json
-from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-CONFIG_PATH = HERE / "config.json"
+from core.paths import CONFIG_PATH
 
 _ENV_KEYS = {
     "sender_email": "BRACE_SENDER_EMAIL",

@@ -18,9 +18,9 @@ Flags:
   --force     ignore window/gap gating (testing only)
 """
 
-import db
-import templates
-from engine import SendJob, run
+from outreach import db
+from outreach import templates
+from outreach.engine import SendJob, run
 
 
 class ColdProvider:
@@ -55,5 +55,9 @@ class ColdProvider:
         db.mark_sent(row["id"], thread_id, "cold", db_path=ctx.db_path)
 
 
+def main():
+    return run(ColdProvider())
+
+
 if __name__ == "__main__":
-    run(ColdProvider())
+    main()

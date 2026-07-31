@@ -7,7 +7,7 @@ reads prospects.db, run_days, and logs/*.log. Also exposes a pause/resume toggle
 honors) and a button to launch a findprospects run via the `claude`
 CLI. Never writes prospects.db, never touches Gmail.
 
-Run: python dashboard.py [--port 8377]
+Run: python brace.py dashboard [--port 8377]
 """
 
 import os
@@ -24,24 +24,24 @@ import subprocess
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-import db
-from engine import MODES
-from runlog import LOCK_STALE_SECONDS
+from outreach import db
+from outreach.engine import MODES
+from core.runlog import LOCK_STALE_SECONDS, lock_path
+
+from core.paths import (
+    ROOT as AGENT_ROOT, DB_PATH, LOGS_DIR as LOG_DIR, PAUSED_FILE,
+)
 
 HERE = Path(__file__).resolve().parent
-AGENT_ROOT = HERE                 # this agent is self-contained; the skill lives inside it
-DB_PATH = HERE / "prospects.db"
-LOG_DIR = HERE / "logs"
-PAUSED_FILE = HERE / "PAUSED"
-DASHBOARD_HTML = HERE / "dashboard.html"
+DASHBOARD_HTML = HERE / "dashboard.html"   # a template, not data — lives with the code
 
 DEFAULT_PORT = 8377
 
 STATUSES = ["new", "cold", "F1", "F2", "failed", "replied", "sibling_replied"]
 
 FINDPROSPECTS_PROMPT = (
-    "Read skills/findprospects/SKILL.md in this directory and run it end to end "
-    "for 15 accounts. Write the CSV to runs/<today>.csv, then stop."
+    "Read skills/findprospects/SKILL.md and run it end to end for 15 accounts. "
+    "Write the CSV to data/runs/<today>.csv, then stop."
 )
 
 # Log line shape: "%Y-%m-%d %H:%M:%S,ms name LEVEL msg"
@@ -61,11 +61,16 @@ _sched_cache = {"ts": 0.0, "result": None}
 
 
 def _check_scheduler_process():
+    # Matches both invocation styles: `brace.py engine` (how the CLI starts it)
+    # and a direct `outreach/scheduler.py` run. Matching only one of them makes
+    # the dashboard report "offline" while the engine is happily sending, which
+    # is worse than no indicator at all.
     try:
         cmd = [
             "powershell", "-NoProfile", "-Command",
             "Get-CimInstance Win32_Process -Filter \"Name like 'python%'\" | "
-            "Where-Object {$_.CommandLine -like '*scheduler.py*'} | "
+            "Where-Object {$_.CommandLine -like '*brace.py* engine*' "
+            "-or $_.CommandLine -like '*scheduler.py*'} | "
             "Select-Object -ExpandProperty ProcessId",
         ]
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
@@ -100,7 +105,7 @@ def get_scheduler_status():
 # ---------------------------------------------------------------------------
 
 def _lock_active(mode):
-    path = HERE / f".v2_{mode}.lock"
+    path = lock_path(f"v2_{mode}")
     if not path.exists():
         return False
     try:

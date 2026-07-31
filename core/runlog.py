@@ -2,23 +2,22 @@
 runlog.py — shared logging + kill-switch helpers.
 
 Task Scheduler / pythonw discard stdout, so every script logs to a file under
-logs/. A PAUSED sentinel file next to the scripts stops all real sends
+data/logs/. A PAUSED sentinel file at the repo root stops all real sends
 without stopping the scheduler process.
 """
 
 import os
 import time
 import logging
-from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-LOG_DIR = HERE / "logs"
-PAUSED_FILE = HERE / "PAUSED"
+from core.paths import LOGS_DIR, PAUSED_FILE, LOCK_DIR, ensure_dirs
+
+LOG_DIR = LOGS_DIR           # kept as an alias; callers import either name
 LOCK_STALE_SECONDS = 1800   # a lock older than this is considered abandoned
 
 
 def get_logger(name, db_path=None):
-    LOG_DIR.mkdir(exist_ok=True)
+    ensure_dirs()
     logger = logging.getLogger(name)
     if logger.handlers:
         return logger
@@ -44,6 +43,16 @@ def paused():
     return PAUSED_FILE.exists()
 
 
+def lock_path(name):
+    """Where single_instance() puts the lock for `name`.
+
+    Exported so readers (the dashboard) and the writer (the engine) cannot
+    drift apart. They previously each built this path from their own
+    `__file__`, which agreed only while every script sat in one directory —
+    and failed silently, as "no burst is running", when that stopped."""
+    return LOCK_DIR / f".{name}.lock"
+
+
 class single_instance:
     """Context manager guarding against two copies of a send script running at
     once (which would race on status='new' and double-send). Usage:
@@ -58,7 +67,7 @@ class single_instance:
     """
 
     def __init__(self, name):
-        self.path = HERE / f".{name}.lock"
+        self.path = lock_path(name)
         self.acquired = False
 
     def __enter__(self):

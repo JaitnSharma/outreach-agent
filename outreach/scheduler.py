@@ -8,22 +8,23 @@ nothing. All burst/gap state lives in the DB (run_days), not in this process
 and not in a sleeping sender, so a restart here loses nothing.
 
 Windows (local IST wall-clock, Mon-Fri):
-    cold      08:30 - 11:00   -> send_cold.py   (cap 50/day)
-    followup  11:30 - 16:30   -> followup.py    (cap 100/day)
+    cold      08:30 - 11:00   -> brace.py send       (cap 50/day)
+    followup  11:30 - 16:30   -> brace.py followup   (cap 100/day)
     hard stop 17:00 enforced inside engine.py, per mail.
 
 Other jobs:
-    bounce_sweep  daily at/after 11:00, CATCH-UP (runs as soon as the PC is on
+    brace.py sweep  daily at/after 11:00, CATCH-UP (runs as soon as the PC is on
                   if 11:00 was missed) — it must land before the follow-up
                   window so dead addresses are pruned first.
-    run_findprospects  weekly, normally Friday from 04:00, with catch-up. See
+    brace.py find  weekly, normally Friday from 04:00, with catch-up. See
                   _prospects_due: the v1 rule (04:00 Friday, 45-min grace) meant
                   the job never fired once, because the PC is rarely on at 4am,
                   which is what starved the lead pipeline.
 
 Stop: end this pythonw process (Task Manager / Task Scheduler -> End).
-Pause sends without stopping the scheduler: create a PAUSED file next to the
-scripts (the senders honor it; bounce_sweep is read-only anyway).
+Pause sends without stopping the scheduler: `python brace.py pause`, which just
+creates a PAUSED file at the repo root (the senders honor it; sweep is
+read-only anyway).
 """
 
 import sys
@@ -31,11 +32,12 @@ import json
 import time
 import datetime
 import subprocess
-from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-STATE_FILE = HERE / "scheduler_state.json"
-LOG_DIR = HERE / "logs"
+from core import paths
+
+ROOT = paths.ROOT
+STATE_FILE = paths.SCHEDULER_STATE
+LOG_DIR = paths.LOGS_DIR
 PYTHON = sys.executable
 
 POLL_SECONDS = 60
@@ -51,7 +53,7 @@ PROSPECT_STALE_DAYS = 8                    # safety net if a Friday is missed
 
 
 def log(msg):
-    LOG_DIR.mkdir(exist_ok=True)
+    paths.ensure_dirs()
     line = f"{datetime.datetime.now():%Y-%m-%d %H:%M:%S} scheduler {msg}\n"
     with open(LOG_DIR / "scheduler.log", "a", encoding="utf-8") as f:
         f.write(line)
@@ -67,6 +69,7 @@ def load_state():
 
 
 def save_state(state):
+    paths.ensure_dirs()
     STATE_FILE.write_text(json.dumps(state, indent=2), encoding="utf-8")
 
 
@@ -75,20 +78,26 @@ def in_window(now, window):
     return start <= now.time() < end
 
 
-def run_script(script, wait=False):
-    """Launch a job. Sender ticks are launched silently — most are sub-second
-    no-ops and logging each one would bury the real events."""
-    path = HERE / script
+def run_job(command, wait=False):
+    """Launch a job through the CLI. Sender ticks are launched silently — most
+    are sub-second no-ops and logging each one would bury the real events.
+
+    Jobs go through `brace.py <command>` rather than a script path so there is
+    one way to invoke every job, and the scheduler does not have to know where
+    any module lives.
+    """
+    argv = [PYTHON, str(paths.CLI)] + list(command)
     try:
-        proc = subprocess.Popen([PYTHON, str(path)], cwd=str(HERE))
+        proc = subprocess.Popen(argv, cwd=str(ROOT))
     except Exception as e:
-        log(f"ERROR launching {script}: {e}")
+        log(f"ERROR launching {' '.join(command)}: {e}")
         return None
     if wait:
         try:
             proc.wait(timeout=BOUNCE_WAIT_SECONDS)
         except subprocess.TimeoutExpired:
-            log(f"ERROR {script} still running after {BOUNCE_WAIT_SECONDS}s")
+            log(f"ERROR {' '.join(command)} still running after "
+                f"{BOUNCE_WAIT_SECONDS}s")
     return proc
 
 
@@ -127,8 +136,8 @@ def check(now, state):
     # --- findprospects: any day, so a missed Friday still gets caught up ----------
     due, week = _prospects_due(now, state)
     if due:
-        log("firing run_findprospects.py (weekly lead refill)")
-        run_script("run_findprospects.py")
+        log("firing `brace.py find` (weekly lead refill)")
+        run_job(["find"])
         state["prospects_week"] = week
         state["prospects_last_date"] = today
         changed = True
@@ -142,15 +151,15 @@ def check(now, state):
     # --- bounce sweep: daily, catch-up, must precede the follow-up window ----
     bounce_proc = None
     if state.get("bounce_date") != today and now.time() >= BOUNCE_AT:
-        log("firing bounce_sweep.py")
-        bounce_proc = run_script("bounce_sweep.py")
+        log("firing `brace.py sweep`")
+        bounce_proc = run_job(["sweep"])
         state["bounce_date"] = today
         changed = True
 
     # --- sender ticks -------------------------------------------------------
-    for mode, script, window in (
-        ("cold", "send_cold.py", COLD_WINDOW),
-        ("followup", "followup.py", FOLLOWUP_WINDOW),
+    for mode, command, window in (
+        ("cold", ["send"], COLD_WINDOW),
+        ("followup", ["followup"], FOLLOWUP_WINDOW),
     ):
         # Tick from the window OPEN onward, not only inside it.
         #
@@ -172,7 +181,7 @@ def check(now, state):
         key = f"{mode}_window_logged"
         if state.get(key) != today:
             log(f"{mode} window open ({window[0]:%H:%M}-{window[1]:%H:%M}) — "
-                f"ticking {script} every {POLL_SECONDS}s")
+                f"ticking `{' '.join(command)}` every {POLL_SECONDS}s")
             state[key] = today
             changed = True
 
@@ -186,7 +195,7 @@ def check(now, state):
             except subprocess.TimeoutExpired:
                 log("ERROR bounce_sweep still running — proceeding anyway")
 
-        run_script(script)
+        run_job(command)
 
     if changed:
         save_state(state)

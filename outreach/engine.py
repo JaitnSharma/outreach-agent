@@ -39,15 +39,16 @@ import argparse
 import datetime
 from pathlib import Path
 
-import db
-import gmail
-from runlog import get_logger, paused, single_instance
+from core import paths
+from outreach import db
+from outreach import gmail
+from core.runlog import get_logger, paused, single_instance
 
 # Today-only pacing override. Contents: "<YYYY-MM-DD> <multiplier>", e.g.
 # "2026-07-27 2.0". Deliberately dated: a stale date is IGNORED, so a one-day
 # sprint can never quietly become the permanent cadence — which would undo the
 # whole reason this engine paces at all.
-SPEED_FILE = Path(__file__).resolve().parent / "SPEED_TODAY"
+SPEED_FILE = paths.SPEED_FILE
 SPEED_CEILING = 4.0          # a typo in that file must not become a 100x blast
 
 # --- Pacing. Every number here is a deliberate, human-set value. ------------

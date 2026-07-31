@@ -21,13 +21,13 @@ trust. The skill calls this script per contact and writes whatever it returns.
 
 Usage (the research agent calls it exactly like this):
 
-    python email_source.py --first priya --domain acmeops.com
+    python brace.py email-for --first priya --domain acmeops.com
 
 Prints the address on stdout, or nothing at all if the mode says there is no
 address to give. Exit 0 either way — an empty result is a valid, expected
 answer, not an error. Exit 2 means the configuration is broken.
 
-    python email_source.py --mode        prints the active mode and what it does
+    python brace.py email-for --mode        prints the active mode and what it does
 """
 
 import re
@@ -36,7 +36,7 @@ import shlex
 import argparse
 import subprocess
 
-import config
+from core import config
 
 VALID_MODES = ("pseudo", "manual", "finder")
 DEFAULT_MODE = "pseudo"

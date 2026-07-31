@@ -1,12 +1,33 @@
-# Everything in this repo is invented demo data and is meant to be committed —
-# the database, the run CSVs and the logs are all part of how the agent works
-# and how you read what it did. Only two things stay out.
+# Most of what this agent produces is invented demo data and is meant to be
+# committed. The run CSVs under data/runs/ stay tracked: they are the record of
+# what the research half actually wrote, and reading them is how you judge it.
+#
+# What stays out is either private or regenerated.
 
 # 1. Local machine config: the real sending address and the paths to the OAuth
 #    credential files. This is the only file that identifies a human.
-#    Start from config.example.json.
+#    Start from config.example.json, or run `python brace.py setup`.
 config.json
 
 # 2. Python bytecode.
 __pycache__/
 *.pyc
+
+# 3. The database and logs.
+#
+#    These were tracked at one point. They cannot be, now that `brace.py demo`
+#    is the first thing a new user runs: a pre-seeded prospects.db makes that
+#    first command report "skipped 3, duplicate" and insert nothing, which is a
+#    broken first impression of a working repo. It is regenerated in under a
+#    second, so shipping it buys nothing and costs the demo.
+data/prospects.db
+data/prospects.db-wal
+data/prospects.db-shm
+data/logs/
+
+# 4. Runtime state. Per-machine and meaningless in a checkout.
+PAUSED
+data/SPEED_TODAY
+data/scheduler_state.json
+data/.*.lock
+data/runs/scrapes/

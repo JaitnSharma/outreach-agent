@@ -5,7 +5,7 @@ Turns the manual Google Cloud consent dance into a single command. You download
 ONE file by hand (the OAuth client keys); this script does the rest and writes
 the `credentials.json` that gmail.py reads.
 
-    python setup_gmail.py path/to/gcp-oauth.keys.json
+    python brace.py setup path/to/gcp-oauth.keys.json
 
 It opens your browser, catches the redirect on localhost, exchanges the code,
 and saves the refresh token. See docs/gmail-setup.md for how to get the keys
@@ -28,6 +28,8 @@ import urllib.request
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+from core.paths import CONFIG_PATH
+
 # Send-only. We never read the user's mailbox beyond our own threads, and
 # gmail.readonly is implied by gmail.modify. Keep this list minimal: a broader
 # scope makes the consent screen scarier and the token more dangerous if leaked.
@@ -39,9 +41,6 @@ SCOPES = [
 AUTH_URI = "https://accounts.google.com/o/oauth2/v2/auth"
 FALLBACK_TOKEN_URI = "https://oauth2.googleapis.com/token"
 PROFILE_URI = "https://gmail.googleapis.com/gmail/v1/users/me/profile"
-
-HERE = Path(__file__).resolve().parent
-CONFIG_PATH = HERE / "config.json"
 
 _result = {}          # filled by the callback handler thread
 
@@ -229,7 +228,7 @@ def main():
             print("\nCould not read the address from Google. Open config.json "
                   "and set 'sender_email' by hand.")
 
-    print("\nVerify:  python -c \"import gmail; print(bool(gmail.get_access_token()))\"")
+    print("\nVerify:  python brace.py doctor")
     return 0
 
 

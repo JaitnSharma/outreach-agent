@@ -29,10 +29,10 @@ Daily cap 100 (engine.MODES). Hard stop at 17:00.
 Flags: --dry-run, --db PATH, --force
 """
 
-import db
-import gmail
-import templates
-from engine import SendJob, run
+from outreach import db
+from outreach import gmail
+from outreach import templates
+from outreach.engine import SendJob, run
 
 MIN_HOURS = 48          # minimum age of the previous send before a follow-up
 
@@ -148,5 +148,9 @@ class FollowupProvider:
         db.mark_sent(row["id"], thread_id, job.kind, db_path=ctx.db_path)
 
 
+def main():
+    return run(FollowupProvider())
+
+
 if __name__ == "__main__":
-    run(FollowupProvider())
+    main()

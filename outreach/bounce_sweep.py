@@ -31,9 +31,9 @@ Flags: --dry-run, --db PATH
 
 import argparse
 
-import db
-import gmail
-from runlog import get_logger
+from outreach import db
+from outreach import gmail
+from core.runlog import get_logger
 
 NEWER_THAN = "3d"          # bounce lookback
 REPLY_LOOKBACK = "7d"      # reply lookback. Wider than the daily cadence on

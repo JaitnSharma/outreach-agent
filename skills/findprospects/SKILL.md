@@ -1,6 +1,6 @@
 ---
 name: findprospects
-description: Find funded startups matching Brace's ICP, identify the finance/ops decision-makers at each, research one real buying signal per contact, and write a signal-grounded outreach hook. Produces runs/<today>.csv and pushes it to prospects.db. Use when asked to "find prospects", "fill the pipeline", "run prospecting", or "find accounts".
+description: Find funded startups matching Brace's ICP, identify the finance/ops decision-makers at each, research one real buying signal per contact, and write a signal-grounded outreach hook. Produces data/runs/<today>.csv and pushes it to prospects.db. Use when asked to "find prospects", "fill the pipeline", "run prospecting", or "find accounts".
 ---
 
 # findprospects — account research → contacts → hooks → CSV → DB
@@ -8,12 +8,18 @@ description: Find funded startups matching Brace's ICP, identify the finance/ops
 You find the accounts and the people, write the hook, fill the email, and push
 to the database. Your job ends when the rows are in `prospects.db`.
 
+**This is the production skill and it is expensive by design** — wide discovery,
+one subagent per account, deep research on each. That is correct for a real
+batch and wrong for anything else. If you were asked for a demo, a sample, a
+smoke test, or "just one or two to see what it looks like", stop and use
+`skills/quicklead/SKILL.md` instead.
+
 ## The workflow you live inside
 
 ```
 1. YOU (orchestrator): qualify accounts -> spawn 1 subagent per account
-                       -> collect rows -> runs/<today>.csv
-2. YOU: python import_csv.py runs/<today>.csv   -> prospects.db (status='new')
+                       -> collect rows -> data/runs/<today>.csv
+2. YOU: python brace.py import data/runs/<today>.csv   -> prospects.db (status='new')
 3. The send engine (separate, not you): picks up status='new' and runs cold -> F1 -> F2
 ```
 
@@ -31,7 +37,7 @@ engine is a different process on a different schedule.
   subagent researches one company in isolation, so its hook is written against
   that company's facts and never drifts toward a house template.
 - **Subagents write nothing to disk** except throwaway scraper output under
-  `runs/scrapes/<account-slug>/`. If N subagents write one file, they clobber
+  `data/runs/scrapes/<account-slug>/`. If N subagents write one file, they clobber
   each other. They report; you write, once.
 - **No validation pass.** Trust the subagents. Your job is to route context in
   and stitch rows out, not to re-check their titles or rewrite their hooks.
@@ -40,7 +46,7 @@ engine is a different process on a different schedule.
 
 ## Dedupe — the self-sustaining loop
 
-`worked_accounts.csv` (single column, header `accounts`) is the memory of every
+`data/worked_accounts.csv` (single column, header `accounts`) is the memory of every
 account already in the pipeline.
 
 - **Before researching:** read it. Skip any account already listed
@@ -49,7 +55,7 @@ account already in the pipeline.
   Edit tool. Add rows only. This is what stops the next run rediscovering the
   same companies. **Never query `prospects.db` for this.**
 
-Also read `blacklist.txt` — never queue an account or domain matching any line
+Also read `data/blacklist.txt` — never queue an account or domain matching any line
 (case-insensitive substring, matched against both name and domain).
 
 ---
@@ -59,7 +65,7 @@ Also read `blacklist.txt` — never queue an account or domain matching any line
 1. Read `context/company.md` — who Brace is, the ICP, who to contact, and the
    four buying signals. This is the frame for every judgement below.
 2. Read `context/voice.md` — the hook has to sound like this.
-3. Read `worked_accounts.csv` and `blacklist.txt`.
+3. Read `data/worked_accounts.csv` and `data/blacklist.txt`.
 
 Default batch: qualify ~15 accounts unless given a number. If given a number,
 that is the qualified-account target.
@@ -98,7 +104,7 @@ Scraping costs no tokens. Reading costs everything. Pull many source pages in
 one batched call:
 
 ```bash
-python scrape.py <funding-roundup-url> <vc-portfolio-url> ... --format json --out-dir runs/scrapes
+python brace.py scrape <funding-roundup-url> <vc-portfolio-url> ... --format json --out-dir data/runs/scrapes
 ```
 
 Funding roundups, VC portfolio pages and accelerator batch lists are dense — one
@@ -156,7 +162,7 @@ One batched call, exactly these four page types:
   * one recent funding or news post, if one exists
 
 ```bash
-python scrape.py <url1> <url2> <url3> <url4> --format json --out-dir runs/scrapes/<slug>
+python brace.py scrape <url1> <url2> <url3> <url4> --format json --out-dir data/runs/scrapes/<slug>
 ```
 
 Four page types is the BUDGET, not a floor to build on. Going deeper into docs,
@@ -226,7 +232,7 @@ subset ("Co-Founder", not a guess between CTO and COO).
 You do not decide the address and you never write one yourself. Run this once
 per contact and use exactly what it prints:
 
-    python email_source.py --first <first_name> --domain <company_domain>
+    python brace.py email-for --first <first_name> --domain <company_domain>
 
 If it prints an address, that is the address. If it prints NOTHING, leave the
 Work Email field EMPTY. Empty is a correct answer here, not a failure to try
@@ -241,7 +247,7 @@ not worth that, ever.
 The mode is configured, not chosen by you. It may be generating placeholders
 that always bounce, leaving the field blank for a human, or calling a real
 lookup service. All three are correct behaviour and none of them are your call.
-`python email_source.py --mode` will tell you which is active if you want to
+`python brace.py email-for --mode` will tell you which is active if you want to
 report it accurately.
 
 --- STEP 6 — write the copy ---
@@ -311,7 +317,7 @@ If you returned zero rows, say why in one line instead of the block.
 
 Buffer every subagent's returned block in memory. When all have reported:
 
-1. **Write ONE CSV** to `runs/<today>.csv`. Do not append per-account as
+1. **Write ONE CSV** to `data/runs/<today>.csv`. Do not append per-account as
    subagents finish. Header, exactly this order:
 
 ```
@@ -326,23 +332,23 @@ full_name,first_name,company,designation,linkedin_url,company_domain,company_soc
 2. **Push to the DB.** Dry-run first, then for real:
 
 ```bash
-python import_csv.py runs/<today>.csv --dry-run
-python import_csv.py runs/<today>.csv
+python brace.py import data/runs/<today>.csv --dry-run
+python brace.py import data/runs/<today>.csv
 ```
 
-`import_csv.py` gates every row (blank email, malformed email, duplicate,
+`brace.py import` gates every row (blank email, malformed email, duplicate,
 blacklist, empty hook). Do not re-validate by hand — run it and relay the
 summary it prints.
 
 3. **Update the memory.** Append every newly queued account to
-   `worked_accounts.csv`, one per line, using the Edit tool.
+   `data/worked_accounts.csv`, one per line, using the Edit tool.
 
 ---
 
 ## Report back
 
 ```
-Qualified N accounts, spawned N subagents. Wrote M rows across C accounts to runs/<date>.csv.
+Qualified N accounts, spawned N subagents. Wrote M rows across C accounts to data/runs/<date>.csv.
 Imported: X inserted, Y skipped.
 
 Queued (by account):
@@ -359,7 +365,7 @@ Dropped:
 - Old Startup — only signal is a 2024 raise, nothing since
 
 Next: rows are status='new'. The send engine picks them up on its next cold run.
-Review first:  python manage.py list --status new
+Review first:  python brace.py leads list --status new
 ```
 
 ---
@@ -368,9 +374,9 @@ Review first:  python manage.py list --status new
 
 - Run `python` (not `python3`). Windows paths.
 - **Never open a browser tool.** All net access goes through WebSearch, WebFetch,
-  or `scrape.py`. LinkedIn is behind an auth wall — when a profile cannot be
-  found via search, leave the field EMPTY per the no-fabrication rule.
-- Page reads go through `scrape.py`, not WebFetch. Reserve WebFetch for pages the
-  scraper fails on.
-- The DB is only ever touched through `import_csv.py`. Never write
+  or `brace.py scrape`. LinkedIn is behind an auth wall — when a profile cannot
+  be found via search, leave the field EMPTY per the no-fabrication rule.
+- Page reads go through `brace.py scrape`, not WebFetch. Reserve WebFetch for
+  pages the scraper fails on.
+- The DB is only ever touched through `brace.py import`. Never write
   `prospects.db` directly. Never touch Gmail.

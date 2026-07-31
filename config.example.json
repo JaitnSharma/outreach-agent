@@ -1,7 +1,13 @@
 {
-  "_comment": "Copy this file to config.json and fill it in. config.json is gitignored and must never be committed. No secrets live here, only the sending identity and two paths to files that hold the OAuth credentials.",
+  "_comment": "Copy to config.json and fill in, or just run `python brace.py setup <keys.json>` which writes it for you. config.json is gitignored and must never be committed. No secrets live here, only the sending identity and two paths to the files that hold the OAuth credentials.",
 
   "sender_email": "sdr@yourdomain.com",
-  "gmail_credentials_path": "C:\\path\\to\\.gmail-mcp\\credentials.json",
-  "gmail_oauth_keys_path": "C:\\path\\to\\.gmail-mcp\\gcp-oauth.keys.json"
+  "gmail_credentials_path": "C:/path/to/.outreach/credentials.json",
+  "gmail_oauth_keys_path": "C:/path/to/.outreach/gcp-oauth.keys.json",
+
+  "_email_source": "pseudo | manual | finder. Where prospect addresses come from. 'pseudo' fabricates guaranteed-bounce placeholders so nothing real is contacted. See ONBOARD.md step 4.",
+  "email_source": "pseudo",
+
+  "_email_finder_command": "Only used when email_source is 'finder'. Must print one address on stdout, or nothing. {first} and {domain} are substituted.",
+  "email_finder_command": "yourfinder --name {first} --domain {domain}"
 }
