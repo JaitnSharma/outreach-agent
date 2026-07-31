@@ -201,11 +201,26 @@ def check(now, state):
         save_state(state)
 
 
+def heartbeat():
+    """Prove this process is alive, for the dashboard to read.
+
+    A file mtime rather than a PID: `os.kill(pid, 0)` is not a safe liveness
+    probe on Windows, and a PID alone cannot distinguish this engine from a
+    second copy of the repo. A timestamp answers the only question the
+    dashboard actually asks - "did something tick recently?" - and answers it
+    the same way on every platform.
+    """
+    paths.ensure_dirs()
+    paths.SCHEDULER_HEARTBEAT.write_text(
+        datetime.datetime.now().isoformat(timespec="seconds"), encoding="utf-8")
+
+
 def main():
     log("scheduler v2 started")
     state = load_state()
     while True:
         try:
+            heartbeat()
             check(datetime.datetime.now(), state)
         except Exception as e:
             log(f"loop error: {e}")

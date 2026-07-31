@@ -31,3 +31,4 @@ data/SPEED_TODAY
 data/scheduler_state.json
 data/.*.lock
 data/runs/scrapes/
+data/scheduler.heartbeat

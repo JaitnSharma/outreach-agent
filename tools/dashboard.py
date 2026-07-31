@@ -30,6 +30,7 @@ from core.runlog import LOCK_STALE_SECONDS, lock_path
 
 from core.paths import (
     ROOT as AGENT_ROOT, DB_PATH, LOGS_DIR as LOG_DIR, PAUSED_FILE,
+    SCHEDULER_HEARTBEAT as HEARTBEAT_FILE, HEARTBEAT_STALE_SECONDS,
 )
 
 HERE = Path(__file__).resolve().parent
@@ -61,50 +62,34 @@ _sched_cache = {"ts": 0.0, "result": None}
 
 
 def _check_scheduler_process():
-    """Is an engine running FOR THIS CHECKOUT?
+    """Is an engine running for THIS checkout? Read its heartbeat.
 
-    Two things have to be true, and the second one is the subtle one:
+    The scheduler rewrites `data/scheduler.heartbeat` every tick. Online means
+    that file was touched within HEARTBEAT_STALE_SECONDS.
 
-    1. The command line looks like a scheduler - either `brace.py ... engine`
-       (how the CLI launches it) or a direct `scheduler.py` run.
-    2. It is running out of THIS directory.
+    This used to inspect the process table for a command line matching
+    `scheduler.py`, and that was wrong twice over. It found an unrelated
+    scheduler elsewhere on the machine, so a fresh clone reported its engine
+    online with nothing running. Tightening it to also match this repo's path
+    then broke the true case, because `python brace.py engine` puts a RELATIVE
+    path on the command line and there is nothing to match against.
 
-    Matching on the script name alone is what a naive version does, and it is
-    wrong on any machine with more than one copy of this repo, or any other
-    project that happens to have a `scheduler.py`. Caught exactly that in
-    testing: an unrelated scheduler elsewhere on the machine made a fresh clone
-    report its engine online while nothing was running. A false "online" is
-    worse than no indicator, because it is the signal you would trust when
-    wondering why nothing has sent.
+    A file this checkout writes and this checkout reads has neither problem,
+    needs no PowerShell, and works the same on every platform. A false "online"
+    is the worst outcome here: it is the signal you would trust while wondering
+    why nothing has sent.
     """
-    # Embedded as a PowerShell single-quoted literal, so ' must be doubled.
-    # .Contains() rather than -like: a path can contain [ and ], which -like
-    # treats as a character class and would silently stop matching.
-    root = str(AGENT_ROOT).lower().replace("'", "''")
     try:
-        cmd = [
-            "powershell", "-NoProfile", "-Command",
-            "Get-CimInstance Win32_Process -Filter \"Name like 'python%'\" | "
-            "Where-Object {$_.CommandLine -and "
-            f"$_.CommandLine.ToLower().Contains('{root}') -and "
-            "($_.CommandLine -like '*engine*' "
-            "-or $_.CommandLine -like '*scheduler.py*')} | "
-            "Select-Object -ExpandProperty ProcessId",
-        ]
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-        out = (proc.stdout or "").strip()
-        pids = [int(tok) for tok in out.split() if tok.strip().isdigit()]
-        own_pid = os.getpid()
-        pids = [p for p in pids if p != own_pid]
-        if pids:
-            return {"scheduler_online": True, "scheduler_pid": pids[0]}
+        mtime = HEARTBEAT_FILE.stat().st_mtime
+    except OSError:
         return {"scheduler_online": False, "scheduler_pid": None}
-    except Exception as e:
-        return {
-            "scheduler_online": False,
-            "scheduler_pid": None,
-            "scheduler_check_error": str(e),
-        }
+
+    age = time.time() - mtime
+    return {
+        "scheduler_online": age <= HEARTBEAT_STALE_SECONDS,
+        "scheduler_pid": None,
+        "scheduler_heartbeat_age": int(age),
+    }
 
 
 def get_scheduler_status():

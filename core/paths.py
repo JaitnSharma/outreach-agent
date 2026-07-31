@@ -42,6 +42,14 @@ SPEED_FILE = DATA_DIR / "SPEED_TODAY"
 SCHEDULER_STATE = DATA_DIR / "scheduler_state.json"
 LOCK_DIR = DATA_DIR
 
+# The scheduler touches this every tick. The dashboard reads its mtime to decide
+# whether an engine is alive, rather than inspecting the process table: a
+# command line is not reliable evidence (it may be a relative path, and another
+# copy of this repo on the same machine looks identical), and a stale timestamp
+# is both simpler and honest about what it actually knows.
+SCHEDULER_HEARTBEAT = DATA_DIR / "scheduler.heartbeat"
+HEARTBEAT_STALE_SECONDS = 180      # scheduler ticks every 60s; 3 misses = down
+
 # --- config --------------------------------------------------------------
 CONFIG_PATH = ROOT / "config.json"
 CONFIG_EXAMPLE = ROOT / "config.example.json"
