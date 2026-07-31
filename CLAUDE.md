@@ -8,8 +8,23 @@ email, and send the sequence on a human schedule.
 There is no other functionality here. If a request is not about prospecting or
 outreach, say so rather than growing this repo sideways.
 
+## If the user is new, or says something open-ended
+
+"Start this", "run this", "show me", "what is this", or any first message that
+does not name a specific script: **do not ask them which entry point they want.**
+They do not know yet — that is the situation.
+
+Walk them through `ONBOARD.md` instead. Say in one line what this is (a lead
+generation and email outreach agent), then run Step 1 with them: seed the sample
+data, dry-run the send, show the dashboard. It needs no credentials and no
+config, so it always works on a fresh clone. Then offer the next step.
+
+Only ask which entry point if they have already been through the walkthrough or
+clearly know the codebase.
+
 ## Read these first
 
+- `ONBOARD.md` — the stepped walkthrough. What a newcomer should be given.
 - `context/company.md` — who Brace is, the ICP, who to contact, the four buying
   signals. Every research judgement traces back to this file.
 - `context/voice.md` — how the hook must sound. Examples first, rules second.

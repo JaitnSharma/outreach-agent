@@ -1,13 +1,25 @@
 # Brace Outreach Agent
 
-An outbound prospecting and email system for **Brace** (corporate cards +
-automated expense management for funded startups).
+A lead generation and email outreach agent.
 
-Give it a target count. It finds accounts matching the ICP, identifies the
-finance and ops decision-makers at each, researches one real buying signal per
-person, writes a hook grounded in that signal, and queues the email. A separate
-send engine then runs the cold → follow-up sequence on a human schedule, stops
-the moment anyone replies, and reconciles bounces.
+Give it a target count. It finds companies matching an ideal customer profile,
+works out who the decision-maker is, digs up one real reason to email that
+specific person, writes the email, and runs the follow-up sequence on a schedule
+that looks like a human wrote it. It stops the moment anyone replies, and
+reconciles its own bounces.
+
+Demonstrated for **Brace**, a fictional company selling corporate cards to funded
+startups. Brace is made up. The companies it researches are not.
+
+> ### → New here? Read **[ONBOARD.md](ONBOARD.md)**.
+>
+> A stepped, 20 minute walkthrough: see it run with no setup, read an email and
+> find out who actually wrote it, connect your Gmail, send for real and watch the
+> bounces get handled, then find live leads. Start there, not here.
+
+**The leads are real. The email addresses are fake on purpose** — every one
+bounces, so you cannot accidentally email a stranger while trying this out. One
+documented function is where a real email finder drops in. See ONBOARD.md.
 
 Nothing sends without the rows sitting reviewable in a database first.
 
