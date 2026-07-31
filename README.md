@@ -110,9 +110,59 @@ is exactly the behaviour a real bad address gets.
 
 ---
 
-## Setup
+## Prerequisites
 
-No credentials and no mailbox identity live in source. Configure once:
+| What | Needed for | Install |
+|---|---|---|
+| **Python 3.9+** | everything | Already have it. There are no pip dependencies — this is stdlib only. |
+| `claude` CLI | the research agent | [Claude Code](https://claude.com/claude-code), signed in |
+| `defuddle` | page scraping during research | `npm install -g defuddle-cli` |
+| Gmail OAuth | sending email | [docs/gmail-setup.md](docs/gmail-setup.md), one command |
+
+Only Python is needed to explore the pipeline. The rest unlock one feature each.
+
+---
+
+## Try it in two minutes
+
+**No credentials, no config, no setup.** A fresh clone can run the whole send
+pipeline end to end right now, because `--dry-run` never touches Gmail and config
+resolves lazily:
+
+```bash
+python import_csv.py runs/sample-for-testing.csv   # seed 3 sample prospects
+python manage.py list --status new                 # see them in the queue
+python send_cold.py --dry-run --force              # render + batch, send nothing
+python dashboard.py                                # http://127.0.0.1:8377
+```
+
+What each one shows you:
+
+1. **The gates.** Every row is checked for a blank or malformed address, a
+   duplicate already in the pipeline, a blacklisted company, and an empty hook.
+2. **The queue.** Three prospects across two companies, `status='new'`.
+3. **The engine.** Watch the log: it batches by company without splitting one
+   across a burst, then paces each send with adaptive jitter. It prints exactly
+   what it *would* send.
+4. **The dashboard.** Funnel, today's counts, and the pause switch.
+
+To see a rendered email:
+
+```bash
+python -c "import db, templates; print(templates.render_cold(db.load_placeholders(db.get_lead(1))))"
+```
+
+Reset any time with `rm prospects.db` (or `del prospects.db` on cmd).
+
+---
+
+## Setup for sending
+
+Needed only once you want real email to go out. Get your Gmail credentials
+first — **[docs/gmail-setup.md](docs/gmail-setup.md)** walks through it and
+`setup_gmail.py` does the OAuth flow in one command.
+
+Then point config at them:
 
 ```bash
 cp config.example.json config.json     # then edit it
@@ -145,7 +195,7 @@ answered.
 
 ---
 
-## Running it
+## Running it for real
 
 ```bash
 # 1. research + queue (needs `claude` on PATH)
@@ -186,6 +236,8 @@ dashboard's toggle does exactly this.
 | `db.py` | SQLite. `leads` + `sends` (write-ahead log) + `run_days`. |
 | `gmail.py` | Gmail REST. Stdlib only, no SDK. |
 | `config.py` + `config.example.json` | Sending identity and credential paths. No secrets in source. |
+| `setup_gmail.py` | One-shot OAuth flow. Writes `credentials.json`. Run once. |
+| `docs/gmail-setup.md` | How to get Gmail credentials, and the `invalid_grant` gotcha. |
 | `send_cold.py` / `followup.py` | Thin providers: which leads, what they say. |
 | `bounce_sweep.py` | Daily inbox reconciliation: bounces, then late replies. |
 | `scheduler.py` | The always-on ticker. |
