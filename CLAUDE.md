@@ -214,15 +214,26 @@ An unconfigured checkout imports fine and fails only when it tries to send. That
 is deliberate — an empty sender address would make reply-detection match every
 message and silently re-nudge people who already replied.
 
-## Everything else is committed on purpose
+## What is committed, and what is not
 
-The database, run CSVs, and logs are all invented demo data and are tracked.
-They are how you read what the agent did. Do not add them to `.gitignore`.
+Source, docs, context, skills, `data/blacklist.txt`, `data/worked_accounts.csv`
+and the invented `data/runs/sample-for-testing.csv` are tracked.
 
-**One caveat:** the research agent finds *real* people at *real* companies. The
-email addresses are pseudonymous, but names, titles and LinkedIn URLs are real
-public-profile data. Before committing a fresh run's output, consider whether
-that belongs in a public repo.
+Four things are deliberately not:
+
+- **`config.json`** — the only file that identifies a human.
+- **`data/prospects.db` and `data/logs/`** — regenerated in a second. A
+  pre-seeded database makes the first `brace.py demo` report "skipped 3,
+  duplicate" and insert nothing, which reads as a broken repo.
+- **Real research output under `data/runs/`** — Brace is invented; **the people
+  the research half finds are not.** Real names, titles and LinkedIn URLs from
+  public sources. This repo is meant to be forked, so a run's output must never
+  be one `git add -A` away from publishing a stranger's details.
+- **Runtime state** — `PAUSED`, locks, the heartbeat, `SPEED_TODAY`.
+
+Never relax the `data/runs/` rule to make a demo look richer. If you want
+committed example output, invent it the way `sample-for-testing.csv` is
+invented.
 
 ## Conventions
 

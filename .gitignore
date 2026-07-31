@@ -30,5 +30,16 @@ PAUSED
 data/SPEED_TODAY
 data/scheduler_state.json
 data/.*.lock
-data/runs/scrapes/
 data/scheduler.heartbeat
+
+# 5. Research output.
+#
+#    The company Brace is invented. The people the research half finds are NOT:
+#    real names, real titles, real LinkedIn URLs, scraped from public sources.
+#    Only the email addresses are fabricated.
+#
+#    This repo is meant to be forked, so a run's output must not be one
+#    `git add -A` away from publishing a stranger's details. Run CSVs stay
+#    local. The one committed CSV is invented demo data and is listed below.
+data/runs/*
+!data/runs/sample-for-testing.csv
