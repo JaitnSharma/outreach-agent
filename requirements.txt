@@ -1,0 +1,32 @@
+# There are no Python dependencies. This file exists to say so.
+#
+#   pip install -r requirements.txt
+#
+# ...succeeds and installs nothing. That is correct, not a broken file.
+#
+# The whole pipeline is Python standard library: sqlite3 for the database,
+# urllib for the Gmail REST calls, http.server for the dashboard and the OAuth
+# redirect, smtplib-free MIME assembly via the email package. No requests, no
+# google-api-python-client, no framework.
+#
+# WHY: this repo is meant to be cloned and run by someone evaluating it, often
+# on a machine they do not want to install things on. Every dependency is a
+# reason for that person to stop. It also means there is no version drift to
+# maintain and nothing to audit before running it against a real mailbox.
+#
+# Keep it that way. If something here seems to need a package, it almost
+# certainly does not - see outreach/gmail.py, which is a complete Gmail client
+# in about 300 lines of urllib.
+#
+# ---------------------------------------------------------------------------
+# Two EXTERNAL tools are optional, and neither is a Python package:
+#
+#   claude     the research half (`agent.py find`)
+#              https://claude.com/claude-code
+#
+#   defuddle   page scraping during research (`agent.py scrape`)
+#              npm install -g defuddle-cli
+#
+# Check what you have:  python agent.py doctor
+#
+# Requires Python 3.9 or newer.

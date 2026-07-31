@@ -188,7 +188,7 @@ has to shell out to `agent.py email-for` and use whatever it prints.
 
 | What | Needed for | Install |
 |---|---|---|
-| **Python 3.9+** | everything | Already have it. There are no pip dependencies — this is stdlib only. |
+| **Python 3.9+** | everything | Already have it. There are no pip dependencies — this is stdlib only, and `requirements.txt` says exactly that. |
 | `claude` CLI | the research agent | [Claude Code](https://claude.com/claude-code), signed in |
 | `defuddle` | page scraping during research | `npm install -g defuddle-cli` |
 | Gmail OAuth | sending email | [docs/gmail-setup.md](docs/gmail-setup.md), one command |

@@ -13,6 +13,7 @@ Run: python agent.py dashboard [--port 8377]
 import os
 import re
 import sys
+import socket
 import json
 import time
 import shutil
@@ -370,19 +371,69 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json({"error": str(e)}, status=500)
 
 
+def _port_in_use(port):
+    """Is something already listening on this port?
+
+    Checked BEFORE binding, because binding is not a reliable test on Windows.
+    socketserver sets allow_reuse_address (SO_REUSEADDR), which on Unix only
+    permits reusing a port stuck in TIME_WAIT, but on Windows permits binding a
+    port another live process is already serving. Both sockets then sit in
+    LISTENING and the OS hands each connection to one of them, arbitrarily.
+
+    The failure that produces is genuinely baffling: the dashboard starts,
+    reports success, and the browser shows a different application - or a
+    half-dead one. Seen in the wild against a stale server from an unrelated
+    project sitting on this same default port.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(0.4)
+        return s.connect_ex(("127.0.0.1", port)) == 0
+
+
+class _Server(ThreadingHTTPServer):
+    # On Windows this is what allows one process to bind a port another process
+    # is already serving. There is no TIME_WAIT benefit to trade away here: a
+    # short-lived local dashboard restarts fine without it.
+    allow_reuse_address = (os.name != "nt")
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Brace outreach dashboard server")
+    parser = argparse.ArgumentParser(description="Outreach dashboard server")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     args = parser.parse_args()
 
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
-    print(f"Brace dashboard running at http://127.0.0.1:{args.port}/")
+    if _port_in_use(args.port):
+        print(f"Port {args.port} is already serving something.\n"
+              f"\n"
+              f"  This is NOT necessarily another copy of this dashboard. On\n"
+              f"  Windows a second server can bind a port that is already in\n"
+              f"  use, and then the browser reaches whichever one the OS picks.\n"
+              f"  Refusing to start rather than show you someone else's page.\n"
+              f"\n"
+              f"  Check what is there:  http://127.0.0.1:{args.port}/\n"
+              f"  Find the process:     netstat -ano | findstr {args.port}\n"
+              f"  Or use another port:  python agent.py dashboard --port "
+              f"{args.port + 1}",
+              file=sys.stderr)
+        return 1
+
+    try:
+        server = _Server(("127.0.0.1", args.port), Handler)
+    except OSError as e:
+        print(f"Could not bind port {args.port}: {e}\n"
+              f"  Try:  python agent.py dashboard --port {args.port + 1}",
+              file=sys.stderr)
+        return 1
+
+    print(f"Dashboard running at http://127.0.0.1:{args.port}/")
+    print("Ctrl-C to stop.")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
         server.server_close()
+    return 0
 
 
 if __name__ == "__main__":
