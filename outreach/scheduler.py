@@ -30,6 +30,7 @@ read-only anyway).
 import sys
 import json
 import time
+import argparse
 import datetime
 import subprocess
 
@@ -216,6 +217,20 @@ def heartbeat():
 
 
 def main():
+    # Parse even though there are no options, so `--help` prints help instead
+    # of silently starting a long-running engine. Without this, asking a
+    # question starts a process the asker did not want and may not notice.
+    ap = argparse.ArgumentParser(
+        description="Run the always-on scheduler. Ticks every "
+                    f"{POLL_SECONDS}s and fires each job inside its window. "
+                    "Stop with Ctrl-C; pause sends with `brace.py pause`.")
+    ap.parse_args()
+
+    print(f"Engine started. Ticking every {POLL_SECONDS}s. Ctrl-C to stop.")
+    print(f"  cold      {COLD_WINDOW[0]:%H:%M}-{COLD_WINDOW[1]:%H:%M}")
+    print(f"  followup  {FOLLOWUP_WINDOW[0]:%H:%M}-{FOLLOWUP_WINDOW[1]:%H:%M}")
+    print(f"  log       {LOG_DIR / 'scheduler.log'}")
+
     log("scheduler v2 started")
     state = load_state()
     while True:
