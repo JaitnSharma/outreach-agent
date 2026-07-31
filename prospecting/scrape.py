@@ -3,9 +3,9 @@
 
 Zero tokens, no API keys. Writes one file per URL and prints a summary.
 
-    python brace.py scrape <url> [<url> ...]
-    python brace.py scrape --file urls.txt
-    python brace.py scrape <url> --format json
+    python agent.py scrape <url> [<url> ...]
+    python agent.py scrape --file urls.txt
+    python agent.py scrape <url> --format json
 
 Output defaults to data/runs/scrapes/.
 

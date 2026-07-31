@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-brace.py - the one entry point.
+agent.py - the one entry point.
 
 Every operation in this repo is a subcommand here. Run it bare to see the map:
 
-    python brace.py
+    python agent.py
 
 Why a dispatcher instead of a directory of scripts: the pipeline is about
 twenty modules, and a newcomer facing twenty files has to read all of them to
@@ -39,7 +39,7 @@ from core import paths                                        # noqa: E402
 # Handlers take the remaining argv and return an exit code.
 
 GROUPS = [
-    ("Getting started", ["demo", "setup", "doctor"]),
+    ("Getting started", ["demo", "setup", "doctor", "tenant"]),
     ("Find prospects",  ["find", "import", "email-for", "scrape"]),
     ("Send",            ["send", "followup", "sweep", "test-send"]),
     ("Run it",          ["engine", "dashboard", "pause", "resume"]),
@@ -50,6 +50,7 @@ HELP = {
     "demo":      "Seed sample leads and render them, no credentials needed",
     "setup":     "Connect a Gmail account (one-time OAuth)",
     "doctor":    "Check prerequisites and configuration, fix nothing",
+    "tenant":    "Show which company this pipeline is selling for",
     "find":      "Research real accounts and write a CSV (needs `claude`)",
     "import":    "Push a research CSV into the database",
     "email-for": "Resolve one contact's address the way the agent must",
@@ -87,56 +88,56 @@ def _delegate(module, argv, prog):
 # --- handlers -------------------------------------------------------------
 
 def cmd_setup(argv):
-    return _delegate("tools.setup_gmail", argv, "brace.py setup")
+    return _delegate("tools.setup_gmail", argv, "agent.py setup")
 
 
 def cmd_find(argv):
-    return _delegate("prospecting.research", argv, "brace.py find")
+    return _delegate("prospecting.research", argv, "agent.py find")
 
 
 def cmd_import(argv):
-    return _delegate("prospecting.import_csv", argv, "brace.py import")
+    return _delegate("prospecting.import_csv", argv, "agent.py import")
 
 
 def cmd_email_for(argv):
-    return _delegate("prospecting.email_source", argv, "brace.py email-for")
+    return _delegate("prospecting.email_source", argv, "agent.py email-for")
 
 
 def cmd_scrape(argv):
-    return _delegate("prospecting.scrape", argv, "brace.py scrape")
+    return _delegate("prospecting.scrape", argv, "agent.py scrape")
 
 
 def cmd_send(argv):
-    return _delegate("outreach.send_cold", argv, "brace.py send")
+    return _delegate("outreach.send_cold", argv, "agent.py send")
 
 
 def cmd_followup(argv):
-    return _delegate("outreach.followup", argv, "brace.py followup")
+    return _delegate("outreach.followup", argv, "agent.py followup")
 
 
 def cmd_sweep(argv):
-    return _delegate("outreach.bounce_sweep", argv, "brace.py sweep")
+    return _delegate("outreach.bounce_sweep", argv, "agent.py sweep")
 
 
 def cmd_test_send(argv):
-    return _delegate("tools.send_test", argv, "brace.py test-send")
+    return _delegate("tools.send_test", argv, "agent.py test-send")
 
 
 def cmd_engine(argv):
-    return _delegate("outreach.scheduler", argv, "brace.py engine")
+    return _delegate("outreach.scheduler", argv, "agent.py engine")
 
 
 def cmd_dashboard(argv):
-    return _delegate("tools.dashboard", argv, "brace.py dashboard")
+    return _delegate("tools.dashboard", argv, "agent.py dashboard")
 
 
 def cmd_leads(argv):
-    return _delegate("tools.manage", argv, "brace.py leads")
+    return _delegate("tools.manage", argv, "agent.py leads")
 
 
 def cmd_pause(argv):
     paths.PAUSED_FILE.touch()
-    print(f"Paused. Sends will no-op until you run `python brace.py resume`.")
+    print(f"Paused. Sends will no-op until you run `python agent.py resume`.")
     print(f"  (this is just a file: {paths.PAUSED_FILE})")
     return 0
 
@@ -156,7 +157,7 @@ def cmd_demo(argv):
     This is the first thing anyone should run. It proves the pipeline works
     end to end without asking them to create a Google Cloud project first.
     """
-    ap = argparse.ArgumentParser(prog="brace.py demo",
+    ap = argparse.ArgumentParser(prog="agent.py demo",
                                  description="Seed sample leads and render them. Sends nothing.")
     ap.add_argument("--db", dest="db_path", default=None)
     args = ap.parse_args(argv)
@@ -174,7 +175,7 @@ def cmd_demo(argv):
         "=" * 70)
     rc = _delegate("prospecting.import_csv",
                    [str(paths.SAMPLE_CSV)] + (["--db", args.db_path] if args.db_path else []),
-                   "brace.py import")
+                   "agent.py import")
     if rc:
         return rc
 
@@ -184,7 +185,7 @@ def cmd_demo(argv):
         "=" * 70)
     rc = _delegate("outreach.send_cold",
                    ["--dry-run", "--force"] + (["--db", args.db_path] if args.db_path else []),
-                   "brace.py send")
+                   "agent.py send")
     if rc:
         return rc
 
@@ -193,8 +194,51 @@ def cmd_demo(argv):
         "Both contacts at the same company went out in one burst - that is",
         "deliberate, and it is why the engine groups by company.",
         "",
-        "Next:  python brace.py status     what is in the pipeline now",
-        "       python brace.py setup      connect Gmail, to send for real")
+        "Next:  python agent.py status     what is in the pipeline now",
+        "       python agent.py setup      connect Gmail, to send for real")
+    return 0
+
+
+def cmd_tenant(argv):
+    """Which company is this pipeline selling for, and where its files live.
+
+    The research skills call this rather than hardcoding a path, because the
+    tenant is configurable and `context/brace/` is only the default.
+    """
+    from core import tenant as t
+
+    ap = argparse.ArgumentParser(
+        prog="agent.py tenant",
+        description="Show the active tenant: the company this pipeline sells for.")
+    ap.add_argument("--paths", action="store_true",
+                    help="print only the file paths, one per line, for scripting")
+    args = ap.parse_args(argv)
+
+    active = t.name()
+    files = [t.company_md(), t.voice_md(), t.blacklist_path(),
+             t.directory() / "copy.py"]
+
+    if args.paths:
+        for f in files:
+            print(f)
+        return 0
+
+    print(f"Selling for:  {active}")
+    print(f"Defined in:   {t.directory()}")
+    print()
+    for f, what in zip(files, ("the ICP, buying signals, who to contact",
+                               "how the hook must sound",
+                               "never-contact companies and domains",
+                               "the fixed strings in every email")):
+        mark = "ok  " if f.exists() else "MISSING"
+        print(f"  {mark} {f.name:<14} {what}")
+
+    others = [n for n in t.available() if n != active]
+    if others:
+        print(f"\nAlso available: {', '.join(others)}")
+    print("\nThis pipeline is not Brace. Brace is an example tenant it has been")
+    print("pointed at. To sell for someone else, copy the folder above, edit the")
+    print('four files, and set "tenant" in config.json.')
     return 0
 
 
@@ -211,10 +255,20 @@ def cmd_doctor(argv):
         ok = False
 
     print("\nOptional tools")
-    for tool, unlocks in (("claude", "`brace.py find` - research"),
-                          ("defuddle", "`brace.py scrape` - page fetching")):
+    for tool, unlocks in (("claude", "`agent.py find` - research"),
+                          ("defuddle", "`agent.py scrape` - page fetching")):
         found = shutil.which(tool)
         print(f"  {'ok  ' if found else 'MISSING'} {tool:<10} {unlocks}")
+
+    print("\nSelling for")
+    try:
+        from core import tenant as t
+        active = t.name()
+        t.copy()          # raises if the folder is missing or incomplete
+        print(f"  ok   {active}  ({t.directory()})")
+    except RuntimeError as e:
+        print(f"  !    {e}")
+        ok = False
 
     print("\nConfiguration")
     if paths.CONFIG_PATH.exists():
@@ -237,7 +291,7 @@ def cmd_doctor(argv):
     else:
         print(f"  none  {paths.CONFIG_PATH}")
         print("        Sending is not configured. Everything else still works:")
-        print("        run `python brace.py demo`, or `python brace.py setup`.")
+        print("        run `python agent.py demo`, or `python agent.py setup`.")
 
     if paths.CONFIG_PATH.exists() and ok:
         print("\nGmail")
@@ -253,7 +307,7 @@ def cmd_doctor(argv):
     print("\nPaused" if paths.PAUSED_FILE.exists() else "\nNot paused")
     if paths.PAUSED_FILE.exists():
         print("  A PAUSED file exists, so sends will silently no-op.")
-        print("  Run `python brace.py resume` to clear it.")
+        print("  Run `python agent.py resume` to clear it.")
 
     return 0 if ok else 1
 
@@ -262,12 +316,12 @@ def cmd_status(argv):
     """One screen: what is queued, what went out, what needs a human."""
     from outreach import db
 
-    ap = argparse.ArgumentParser(prog="brace.py status")
+    ap = argparse.ArgumentParser(prog="agent.py status")
     ap.add_argument("--db", dest="db_path", default=None)
     args = ap.parse_args(argv)
 
     if not (Path(args.db_path) if args.db_path else paths.DB_PATH).exists():
-        print("No database yet. Run `python brace.py demo` to create one.")
+        print("No database yet. Run `python agent.py demo` to create one.")
         return 0
 
     db.init_db(args.db_path)
@@ -291,7 +345,7 @@ def cmd_status(argv):
     total = sum(counts.values())
     print(f"Pipeline ({total} lead{'s' if total != 1 else ''})")
     if not total:
-        print("  empty - run `python brace.py demo` or `python brace.py find`")
+        print("  empty - run `python agent.py demo` or `python agent.py find`")
     for status in ("new", "cold", "F1", "F2", "replied", "sibling_replied", "failed"):
         if counts.get(status):
             print(f"  {counts[status]:>4}  {status}")
@@ -304,9 +358,9 @@ def cmd_status(argv):
         print("     0  nothing yet")
 
     if dead:
-        print(f"\n{dead} send(s) gave up after retries - `python brace.py leads list --status failed`")
+        print(f"\n{dead} send(s) gave up after retries - `python agent.py leads list --status failed`")
     if paths.PAUSED_FILE.exists():
-        print("\nPAUSED - sending is off. `python brace.py resume` to clear.")
+        print("\nPAUSED - sending is off. `python agent.py resume` to clear.")
     return 0
 
 
@@ -314,6 +368,7 @@ HANDLERS = {
     "demo": cmd_demo,
     "setup": cmd_setup,
     "doctor": cmd_doctor,
+    "tenant": cmd_tenant,
     "find": cmd_find,
     "import": cmd_import,
     "email-for": cmd_email_for,
@@ -332,14 +387,19 @@ HANDLERS = {
 
 
 def usage():
-    print("Brace outreach agent - find prospects, write the email, send the sequence.")
-    print("\n  python brace.py <command> [options]")
-    print("  python brace.py <command> --help     options for one command")
+    print("Outreach agent - find prospects, write the email, send the sequence.")
+    try:
+        from core import tenant as t
+        print(f"Currently selling for: {t.name()}   (python agent.py tenant)")
+    except Exception:
+        pass
+    print("\n  python agent.py <command> [options]")
+    print("  python agent.py <command> --help     options for one command")
     for title, names in GROUPS:
         print(f"\n{title}")
         for name in names:
             print(f"  {name:<12} {HELP[name]}")
-    print("\nNew here? Run `python brace.py demo` - it needs no setup and sends nothing.")
+    print("\nNew here? Run `python agent.py demo` - it needs no setup and sends nothing.")
     print("Then read ONBOARD.md, or just ask the agent to walk you through it.")
 
 
@@ -365,8 +425,8 @@ def main():
         # of it just buries the useful part.
         print(f"\n{e}\n", file=sys.stderr)
         if not paths.CONFIG_PATH.exists():
-            print("Run `python brace.py setup` to connect a mailbox, or "
-                  "`python brace.py demo`\nto explore the pipeline without one.",
+            print("Run `python agent.py setup` to connect a mailbox, or "
+                  "`python agent.py demo`\nto explore the pipeline without one.",
                   file=sys.stderr)
         return 1
     except KeyboardInterrupt:

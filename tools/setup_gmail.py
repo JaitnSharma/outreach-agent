@@ -5,7 +5,7 @@ Turns the manual Google Cloud consent dance into a single command. You download
 ONE file by hand (the OAuth client keys); this script does the rest and writes
 the `credentials.json` that gmail.py reads.
 
-    python brace.py setup path/to/gcp-oauth.keys.json
+    python agent.py setup path/to/gcp-oauth.keys.json
 
 It opens your browser, catches the redirect on localhost, exchanges the code,
 and saves the refresh token. See docs/gmail-setup.md for how to get the keys
@@ -228,7 +228,7 @@ def main():
             print("\nCould not read the address from Google. Open config.json "
                   "and set 'sender_email' by hand.")
 
-    print("\nVerify:  python brace.py doctor")
+    print("\nVerify:  python agent.py doctor")
     return 0
 
 

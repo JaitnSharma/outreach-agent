@@ -5,15 +5,15 @@ Until the updateDB skill is built, this is how leads get into the DB and how
 'failed' rows get repaired. Stdlib only.
 
 Examples:
-  python brace.py leads add --company Acme --designation Founder \\
+  python agent.py leads add --company Acme --designation Founder \\
       --mails a@acme.com,a.founder@gmail.com \\
       --name Aisha --why "Acme builds ..." --f2 "I understand your time ..."
-  python brace.py leads list
-  python brace.py leads list --status failed
-  python brace.py leads show 3
-  python brace.py leads set-status 3 cold
-  python brace.py leads readd-address 3 a@acme.com     # move back from wrongMails
-  python brace.py leads backdate 3 --hours 72          # for testing follow-ups
+  python agent.py leads list
+  python agent.py leads list --status failed
+  python agent.py leads show 3
+  python agent.py leads set-status 3 cold
+  python agent.py leads readd-address 3 a@acme.com     # move back from wrongMails
+  python agent.py leads backdate 3 --hours 72          # for testing follow-ups
 
 All commands accept --db PATH to target a test database.
 """

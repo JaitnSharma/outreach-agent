@@ -7,7 +7,7 @@ reads prospects.db, run_days, and logs/*.log. Also exposes a pause/resume toggle
 honors) and a button to launch a findprospects run via the `claude`
 CLI. Never writes prospects.db, never touches Gmail.
 
-Run: python brace.py dashboard [--port 8377]
+Run: python agent.py dashboard [--port 8377]
 """
 
 import os
@@ -71,7 +71,7 @@ def _check_scheduler_process():
     `scheduler.py`, and that was wrong twice over. It found an unrelated
     scheduler elsewhere on the machine, so a fresh clone reported its engine
     online with nothing running. Tightening it to also match this repo's path
-    then broke the true case, because `python brace.py engine` puts a RELATIVE
+    then broke the true case, because `python agent.py engine` puts a RELATIVE
     path on the command line and there is nothing to match against.
 
     A file this checkout writes and this checkout reads has neither problem,

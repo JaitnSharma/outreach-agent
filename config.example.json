@@ -1,5 +1,8 @@
 {
-  "_comment": "Copy to config.json and fill in, or just run `python brace.py setup <keys.json>` which writes it for you. config.json is gitignored and must never be committed. No secrets live here, only the sending identity and two paths to the files that hold the OAuth credentials.",
+  "_comment": "Copy to config.json and fill in, or just run `python agent.py setup <keys.json>` which writes it for you. config.json is gitignored and must never be committed. No secrets live here, only the sending identity and two paths to the files that hold the OAuth credentials.",
+
+  "_tenant": "Which company this pipeline is selling FOR. One folder under context/. Ships with 'brace' as an example; copy that folder and edit four files to sell for someone else. `python agent.py tenant` shows the active one.",
+  "tenant": "brace",
 
   "sender_email": "sdr@yourdomain.com",
   "gmail_credentials_path": "C:/path/to/.outreach/credentials.json",

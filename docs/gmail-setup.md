@@ -8,7 +8,7 @@ Two files are involved:
 | File | What it is | Where it comes from |
 |---|---|---|
 | `gcp-oauth.keys.json` | Your OAuth client (client id + secret) | You download it from Google Cloud, once |
-| `credentials.json` | Your refresh token | `brace.py setup` writes it for you |
+| `credentials.json` | Your refresh token | `agent.py setup` writes it for you |
 
 Neither belongs in this repo. Keep them outside the project directory and point
 `config.json` at them by path.
@@ -32,7 +32,7 @@ Neither belongs in this repo. Keep them outside the project directory and point
 ## 2. Get your refresh token (one command)
 
 ```bash
-python brace.py setup C:/Users/you/.outreach/gcp-oauth.keys.json
+python agent.py setup C:/Users/you/.outreach/gcp-oauth.keys.json
 ```
 
 It opens your browser, you approve access, and it writes `credentials.json` next
@@ -45,7 +45,7 @@ for you**, so there is nothing to type. That is it.
 ## 3. Verify
 
 ```bash
-python brace.py doctor
+python agent.py doctor
 ```
 
 `True` proves the whole chain: config resolves, both files parse, and Google
@@ -88,10 +88,10 @@ roughly every 7 days. The pipeline goes quiet with no obvious cause.
 
 Fix it permanently: OAuth consent screen → **Publish App**. You do not need
 verification for personal use with a small scope set. Or just re-run
-`brace.py setup` when it happens.
+`agent.py setup` when it happens.
 
 **"Google did not return a refresh_token."** You have authorised this client
-before, and Google only issues a refresh token on first consent. `brace.py setup`
+before, and Google only issues a refresh token on first consent. `agent.py setup`
 sends `prompt=consent` to force a fresh one, but if it still happens, revoke the
 app at [myaccount.google.com/permissions](https://myaccount.google.com/permissions)
 and run it again.

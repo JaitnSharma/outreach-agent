@@ -8,11 +8,11 @@ against no daily cap, because nothing here is part of a sequence.
 Two things you might want to see:
 
     # watch it bounce, using a placeholder address
-    python brace.py test-send --to priya@acmeops.pseudoemail.com \
+    python agent.py test-send --to priya@acmeops.pseudoemail.com \
         --name Priya --company "Acme Ops" --hook "You were hired into ..."
 
     # watch it arrive, using your own inbox
-    python brace.py test-send --to you@gmail.com \
+    python agent.py test-send --to you@gmail.com \
         --name Priya --company "Acme Ops" --hook "You were hired into ..."
 
 Either way the message lands in your Gmail Sent folder, correctly formatted and
@@ -64,7 +64,7 @@ def main():
               "f1": templates.render_f1,
               "f2": templates.render_f2}[args.kind]
     html = render(placeholders)
-    subject = templates.COLD_SUBJECT.replace("{company}", args.company)
+    subject = templates.cold_subject(args.company)
     if args.kind != "cold":
         subject = "Re: " + subject
 

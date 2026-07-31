@@ -8,21 +8,21 @@ nothing. All burst/gap state lives in the DB (run_days), not in this process
 and not in a sleeping sender, so a restart here loses nothing.
 
 Windows (local IST wall-clock, Mon-Fri):
-    cold      08:30 - 11:00   -> brace.py send       (cap 50/day)
-    followup  11:30 - 16:30   -> brace.py followup   (cap 100/day)
+    cold      08:30 - 11:00   -> agent.py send       (cap 50/day)
+    followup  11:30 - 16:30   -> agent.py followup   (cap 100/day)
     hard stop 17:00 enforced inside engine.py, per mail.
 
 Other jobs:
-    brace.py sweep  daily at/after 11:00, CATCH-UP (runs as soon as the PC is on
+    agent.py sweep  daily at/after 11:00, CATCH-UP (runs as soon as the PC is on
                   if 11:00 was missed) — it must land before the follow-up
                   window so dead addresses are pruned first.
-    brace.py find  weekly, normally Friday from 04:00, with catch-up. See
+    agent.py find  weekly, normally Friday from 04:00, with catch-up. See
                   _prospects_due: the v1 rule (04:00 Friday, 45-min grace) meant
                   the job never fired once, because the PC is rarely on at 4am,
                   which is what starved the lead pipeline.
 
 Stop: end this pythonw process (Task Manager / Task Scheduler -> End).
-Pause sends without stopping the scheduler: `python brace.py pause`, which just
+Pause sends without stopping the scheduler: `python agent.py pause`, which just
 creates a PAUSED file at the repo root (the senders honor it; sweep is
 read-only anyway).
 """
@@ -83,7 +83,7 @@ def run_job(command, wait=False):
     """Launch a job through the CLI. Sender ticks are launched silently — most
     are sub-second no-ops and logging each one would bury the real events.
 
-    Jobs go through `brace.py <command>` rather than a script path so there is
+    Jobs go through `agent.py <command>` rather than a script path so there is
     one way to invoke every job, and the scheduler does not have to know where
     any module lives.
     """
@@ -137,7 +137,7 @@ def check(now, state):
     # --- findprospects: any day, so a missed Friday still gets caught up ----------
     due, week = _prospects_due(now, state)
     if due:
-        log("firing `brace.py find` (weekly lead refill)")
+        log("firing `agent.py find` (weekly lead refill)")
         run_job(["find"])
         state["prospects_week"] = week
         state["prospects_last_date"] = today
@@ -152,7 +152,7 @@ def check(now, state):
     # --- bounce sweep: daily, catch-up, must precede the follow-up window ----
     bounce_proc = None
     if state.get("bounce_date") != today and now.time() >= BOUNCE_AT:
-        log("firing `brace.py sweep`")
+        log("firing `agent.py sweep`")
         bounce_proc = run_job(["sweep"])
         state["bounce_date"] = today
         changed = True
@@ -223,7 +223,7 @@ def main():
     ap = argparse.ArgumentParser(
         description="Run the always-on scheduler. Ticks every "
                     f"{POLL_SECONDS}s and fires each job inside its window. "
-                    "Stop with Ctrl-C; pause sends with `brace.py pause`.")
+                    "Stop with Ctrl-C; pause sends with `agent.py pause`.")
     ap.parse_args()
 
     print(f"Engine started. Ticking every {POLL_SECONDS}s. Ctrl-C to stop.")

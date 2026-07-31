@@ -41,8 +41,10 @@ the wide path. Everything you need is here.
 
 ## Step 0 — read the frame (2 files, no searches)
 
-1. `context/company.md` — who Brace sells to and the buying signals.
-2. `context/voice.md` — how the hook must sound.
+Run `python agent.py tenant --paths`. It prints four paths; read the first two:
+
+1. `company.md` — who we sell for, and the buying signals.
+2. `voice.md` — how the hook must sound.
 
 Do not read anything else. Do not read `data/worked_accounts.csv`; this is a
 demo and dedupe does not matter.
@@ -58,12 +60,12 @@ Take the **first credible hit** that clears the bar. Do not build a candidate
 list. Do not compare options. The demo does not get better because you picked
 the third-best company instead of the first.
 
-Skip anything in `data/blacklist.txt` if it happens to come up. Do not read the
+Skip anything in the tenant's `blacklist.txt` if it happens to come up. Do not read the
 file preemptively.
 
 ## Step 2 — one scrape, two pages max (1 call)
 
-    python brace.py scrape <homepage> <careers-or-about> --format json
+    python agent.py scrape <homepage> <careers-or-about> --format json
 
 Check `schemaOrgData` first — it carries `Organization` and `JobPosting` as
 structured fields, free. Read the prose only if that comes up empty.
@@ -91,7 +93,7 @@ subset ("Co-Founder", not a guess between CTO and COO).
 
 Run this once and use exactly what it prints:
 
-    python brace.py email-for --first <first_name> --domain <company_domain>
+    python agent.py email-for --first <first_name> --domain <company_domain>
 
 If it prints an address, that is the address. If it prints nothing, leave the
 field empty. You never write an email address yourself — a guessed address
@@ -131,7 +133,7 @@ full_name,first_name,company,designation,linkedin_url,company_domain,company_soc
 
 Quote any field containing a comma. UTF-8.
 
-**Do not import to the database.** Do not run `brace.py import`. Whoever is
+**Do not import to the database.** Do not run `agent.py import`. Whoever is
 being onboarded decides that, not you.
 
 ## Step 7 — report
@@ -152,7 +154,7 @@ Found 1 lead in <N> searches.
 Written to data/runs/sample-lead.csv. Nothing imported, nothing sent.
 
 See it inside the finished email:
-  python brace.py test-send --dry-run --to <address> \
+  python agent.py test-send --dry-run --to <address> \
       --name <first_name> --company "<company>" --hook "<hook>"
 ```
 

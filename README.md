@@ -1,6 +1,6 @@
-# Brace Outreach Agent
+# Outreach Agent
 
-A lead generation and email outreach agent.
+A lead generation and email outreach pipeline that plugs into a company.
 
 Give it a target count. It finds companies matching an ideal customer profile,
 works out who the decision-maker is, digs up one real reason to email that
@@ -8,20 +8,36 @@ specific person, writes the email, and runs the follow-up sequence on a schedule
 that looks like a human wrote it. It stops the moment anyone replies, and
 reconciles its own bounces.
 
-Demonstrated for **Brace**, a fictional company selling corporate cards to funded
-startups. Brace is made up. The companies it researches are not.
+**The pipeline is generic. The company it sells for is configuration.** That
+company is called the *tenant*, and it is one folder:
+
+```
+context/brace/
+    company.md      the ICP, the buying signals, who to contact
+    voice.md        how the hook must sound
+    copy.py         the fixed strings in the emails
+    blacklist.txt   never-contact companies and domains
+```
+
+This repo ships with **Brace** — a fictional company selling corporate cards to
+funded startups — as the example tenant. Brace is not the pipeline; Brace is
+what the pipeline has been pointed at. Selling for someone else is copying that
+folder, editing four files, and setting `"tenant"` in `config.json`. No code
+changes. See [Pointing it at your own company](#pointing-it-at-your-own-company).
+
+Brace is made up. The companies it researches are not.
 
 ```bash
-python brace.py demo
+python agent.py demo
 ```
 
 No credentials, no config, nothing sent. That is the whole first step.
 
 > ### → New here? Read **[ONBOARD.md](ONBOARD.md)**.
 >
-> Five steps, each one command: see it run with no setup, connect Gmail, find a
-> real lead, watch one email send, then turn the engine on. Or open this repo in
-> Claude Code and say "walk me through it".
+> Six steps, each one command: see it run with no setup, connect Gmail, find a
+> real lead, watch one email send, turn the engine on, then point it at your own
+> company. Or open this repo in Claude Code and say "walk me through it".
 
 **The leads are real. The email addresses are fake on purpose** — every one
 bounces, so you cannot accidentally email a stranger while trying this out. One
@@ -33,13 +49,14 @@ Nothing sends without the rows sitting reviewable in a database first.
 
 ## Commands
 
-Everything is a subcommand of `brace.py`. Run it bare to see this list.
+Everything is a subcommand of `agent.py`. Run it bare to see this list.
 
 | | |
 |---|---|
 | `demo` | Seed sample leads and render them. No credentials needed. |
 | `setup` | Connect a Gmail account (one-time OAuth). |
 | `doctor` | Check prerequisites and configuration. Fixes nothing. |
+| `tenant` | Show which company the pipeline is selling for. |
 | `find` | Research real accounts and write a CSV. |
 | `import` | Push a research CSV into the database. |
 | `email-for` | Resolve one contact's address the way the agent must. |
@@ -59,7 +76,7 @@ Everything is a subcommand of `brace.py`. Run it bare to see this list.
 
 ```
   ┌──────────────────────── RESEARCH (LLM) ────────────────────────┐
-  │  brace.py find                                                  │
+  │  agent.py find                                                  │
   │    orchestrator: qualify accounts (single-threaded, no dupes)   │
   │         │                                                       │
   │         ├── subagent per account ── scrape → signal → hook      │
@@ -68,12 +85,12 @@ Everything is a subcommand of `brace.py`. Run it bare to see this list.
   │                     │                                           │
   │              data/runs/<date>.csv                               │
   └─────────────────────┬───────────────────────────────────────────┘
-                        │  brace.py import  (gates: email, dupe, blacklist, hook)
+                        │  agent.py import  (gates: email, dupe, blacklist, hook)
                         v
               data/prospects.db   ← the handoff. Reviewable. Nothing has sent.
                         │
   ┌─────────────────────┴──────── SEND (no LLM) ────────────────────┐
-  │  brace.py engine  (always-on, ticks every 60s)                  │
+  │  agent.py engine  (always-on, ticks every 60s)                  │
   │      │                                                          │
   │      ├── send      08:30-11:00   cap 50/day                     │
   │      ├── sweep     11:00         bounces + replies              │
@@ -84,7 +101,7 @@ Everything is a subcommand of `brace.py`. Run it bare to see this list.
   │        templates.py (fixed HTML) │ gmail.py (REST, stdlib only) │
   └────────────────────────────────────────────────────────────────┘
                         │
-                  brace.py dashboard → http://127.0.0.1:8377
+                  agent.py dashboard → http://127.0.0.1:8377
 ```
 
 **Why split?** The research half is slow, non-deterministic and expensive. The
@@ -147,7 +164,7 @@ The address is the only mock, and it is a config value rather than a prompt
 instruction — see `prospecting/email_source.py`:
 
 ```bash
-python brace.py email-for --mode
+python agent.py email-for --mode
 ```
 
 | `email_source` | Behaviour |
@@ -157,13 +174,13 @@ python brace.py email-for --mode
 | `finder` | Shells out to your lookup service (Clay, Apollo, Hunter, Prospeo). |
 
 Everything downstream is already production-shaped: pseudo addresses bounce on
-send, and `brace.py sweep` moves them to `wrongMails` and marks the lead
+send, and `agent.py sweep` moves them to `wrongMails` and marks the lead
 `failed` — exactly what a real bad address gets.
 
 **The research agent is never allowed to write an address itself.** A guessed
 address bounces, and a bounce rate over a few percent gets the sending mailbox
 classified as spam by Gmail, permanently. That is not a prompt rule; the model
-has to shell out to `brace.py email-for` and use whatever it prints.
+has to shell out to `agent.py email-for` and use whatever it prints.
 
 ---
 
@@ -179,7 +196,7 @@ has to shell out to `brace.py email-for` and use whatever it prints.
 Only Python is needed to explore the pipeline. The rest unlock one feature each.
 
 ```bash
-python brace.py doctor      # tells you which of these you have
+python agent.py doctor      # tells you which of these you have
 ```
 
 ---
@@ -187,10 +204,11 @@ python brace.py doctor      # tells you which of these you have
 ## Layout
 
 ```
-brace.py            every command lives here
-core/               paths, config, logging, kill switch
+agent.py            every command lives here
+core/               paths, config, tenant loading, logging, kill switch
   paths.py            every filesystem location, in one place
   config.py           env var -> config.json -> loud error
+  tenant.py           loads and validates context/<tenant>/
   runlog.py           file logging, PAUSED sentinel, single-instance locks
 prospecting/        research half - ends at a CSV, cannot send
   research.py         invokes the skill headless via the `claude` CLI
@@ -211,9 +229,13 @@ tools/              human-facing utilities
   dashboard.py        local read-only dashboard + dashboard.html
   manage.py           manual inspection and repair
   send_test.py        one email, outside the pipeline
-context/            company.md (ICP, signals), voice.md (how the hook sounds)
+context/<tenant>/   the company being sold for - swappable, no code changes
+  company.md          the ICP, buying signals, who to contact
+  voice.md            how the hook must sound
+  copy.py             the fixed strings in every email (no markup)
+  blacklist.txt       never-contact companies and domains
 skills/             quicklead (one lead, fast), findprospects (production)
-data/               prospects.db, runs/, logs/, blacklist.txt, worked_accounts.csv
+data/               prospects.db, runs/, logs/, worked_accounts.csv
 docs/               gmail-setup.md
 ```
 
@@ -222,11 +244,58 @@ from its own `__file__`.
 
 ---
 
+## Pointing it at your own company
+
+```bash
+python agent.py tenant        # who it sells for now, and where that lives
+```
+
+The tenant is one folder. To sell for someone else, copy it and edit four files:
+
+```bash
+cp -r context/brace context/yourco
+```
+
+| File | What you write |
+|---|---|
+| `company.md` | Your ICP, the buying signals that qualify an account, who to contact and who never to. |
+| `voice.md` | How the hook must sound. Examples first, rules second. |
+| `copy.py` | Plain strings: what you sell, the CTA, who signs, the subject line. |
+| `blacklist.txt` | Competitors, existing customers, anyone who asked to be left alone. |
+
+Then point config at it:
+
+```json
+{ "tenant": "yourco" }
+```
+
+That is the whole operation. No code changes. The send engine, the pacing, the
+database, the dashboard and the research skills are all tenant-independent —
+`agent.py tenant --paths` is how the skills find the right files at runtime.
+
+**Three layers, deliberately separate:**
+
+| Layer | Owns | Varies |
+|---|---|---|
+| `outreach/templates.py` | structure: block order, HTML, hook-first ordering | never |
+| `context/<tenant>/copy.py` | copy: what the company sells, who signs | per company |
+| the database | the four slots the research agent filled | per lead |
+
+`copy.py` holds **no markup**. Templates assemble; tenants supply sentences. A
+tenant cannot reorder blocks, inject HTML, or change which slots exist — that is
+the harness rule applied one level up, and it is why editing copy can never
+silently break the format of every email.
+
+Missing or empty values fail loudly when the tenant loads, rather than rendering
+the string `None` into a real email.
+
+---
+
 ## Configuration
 
 Needed only once you want real email to go out.
 **[docs/gmail-setup.md](docs/gmail-setup.md)** walks through getting the
-credentials; `brace.py setup` does the OAuth flow and writes `config.json` for
+credentials; `agent.py setup` does the OAuth flow and writes `config.json` for
 you.
 
 ```json
@@ -261,27 +330,27 @@ answered.
 
 ```bash
 # 1. research + queue (needs `claude` on PATH)
-python brace.py find --count 15
+python agent.py find --count 15
 
 # 2. inspect before anything sends
-python brace.py leads list --status new
-python brace.py leads show 3
+python agent.py leads list --status new
+python agent.py leads show 3
 
 # 3. see what would go out, without sending
-python brace.py send --dry-run --force
+python agent.py send --dry-run --force
 
 # 4. send for real
-python brace.py send --force        # or let the engine fire it in-window
+python agent.py send --force        # or let the engine fire it in-window
 
 # 5. watch it
-python brace.py dashboard           # http://127.0.0.1:8377
+python agent.py dashboard           # http://127.0.0.1:8377
 ```
 
-**Always-on mode:** `python brace.py engine` (or `pythonw`, or a shortcut in the
+**Always-on mode:** `python agent.py engine` (or `pythonw`, or a shortcut in the
 Windows Startup folder). It ticks every 60 seconds and fires each job inside its
 window.
 
-**Stop sends instantly:** `python brace.py pause`. That creates an empty `PAUSED`
+**Stop sends instantly:** `python agent.py pause`. That creates an empty `PAUSED`
 file at the repo root; the senders no-op and the scheduler keeps running. Delete
 the file or run `resume` to continue. The dashboard's toggle does the same thing.
 

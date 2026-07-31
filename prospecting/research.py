@@ -42,14 +42,28 @@ QUICK_TIMEOUT = 6 * 60           # a demo that takes longer than this has failed
 PROFILES = ("full", "quick")
 
 
+def _tenant_line():
+    """Name the active tenant in the prompt.
+
+    The skill is written to be tenant-agnostic - it says "the tenant's
+    company.md", not "Brace". Telling the model which one is active up front
+    saves it a discovery step and makes the run reproducible.
+    """
+    from core import tenant
+    return (f"You are prospecting for the tenant '{tenant.name()}'. Its files "
+            f"are in {tenant.directory()} - read company.md and voice.md there "
+            f"before anything else. ")
+
+
 def _full_prompt(count):
     return (
+        _tenant_line() +
         f"Read skills/findprospects/SKILL.md and run it end to end for {count} "
         "accounts, without stopping to ask. Read data/worked_accounts.csv and "
-        "data/blacklist.txt first, qualify the accounts, spawn one subagent per "
+        "the tenant's blacklist.txt first, qualify the accounts, spawn one subagent per "
         "account, then write the single CSV to data/runs/<today>.csv with the "
-        "Work Email column filled by `python brace.py email-for`, push it with "
-        "`python brace.py import data/runs/<today>.csv`, and append every newly "
+        "Work Email column filled by `python agent.py email-for`, push it with "
+        "`python agent.py import data/runs/<today>.csv`, and append every newly "
         "queued account to data/worked_accounts.csv. Do NOT send any emails and "
         "do NOT touch Gmail. Finish by printing the standard report-back summary."
     )
@@ -57,6 +71,7 @@ def _full_prompt(count):
 
 def _quick_prompt(count):
     return (
+        _tenant_line() +
         f"Read skills/quicklead/SKILL.md and run it end to end for {count} "
         "contact(s), without stopping to ask. Obey the search budget in that "
         "file exactly — it is a hard cap, not a guideline. Do NOT spawn "

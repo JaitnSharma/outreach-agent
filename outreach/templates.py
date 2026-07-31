@@ -7,6 +7,14 @@ into a fixed skeleton. So a bad research run can produce a weak sentence; it can
 never produce a malformed email, a broken link, a missing CTA, or a message that
 forgets who it is from.
 
+Three layers, and keeping them apart is the point:
+
+    this file            STRUCTURE. Block order, HTML, which slots exist, and
+                         the rule that the hook lands first. Never varies.
+    context/<tenant>/    COPY. What the company sells, who signs, the CTA.
+      copy.py            Plain strings, no markup. Swappable per company.
+    the database         PER-LEAD. Four slots the research agent filled.
+
 Only these tokens vary per lead:
   cold:  {first_name} {company} {hook}
   f1:    {first_name} {company}
@@ -16,89 +24,78 @@ Note the ordering choice in the cold template: the hook comes FIRST, immediately
 after the greeting, before we say anything about ourselves. A cold email that
 opens with "I'm X from Y" is deleted before the reader reaches the relevant part.
 Leading with the thing we found about THEM is the whole point of the pipeline.
+
+The tenant is loaded lazily, per render, rather than at import. Reading config
+at import time makes every module that merely imports this one fail on an
+unconfigured checkout, which is exactly the thing the rest of the repo works
+hard to avoid.
 """
 
-# --- Sender identity (single source of truth) -----------------------------
-SENDER_NAME = "Arjun Mehta"
-SENDER_TITLE = "Growth, Brace"
-BRACE_SITE = "https://usebrace.com"
-WALKTHROUGH_LINK = "https://usebrace.com/walkthrough"
+from core import tenant
 
-# --- Static product line. Identical on every cold email, by design: the
-# personalisation budget is spent entirely on the hook, never on restating
-# what we sell. -------------------------------------------------------------
-PRODUCT_LINE = (
-    "Brace gives your team corporate cards where the expenses categorise "
-    "themselves. No receipt chasing, no month-end spreadsheet."
-)
-
-# --- Subject lines --------------------------------------------------------
-# {company} is substituted by import_csv.py at insert time, not here.
-COLD_SUBJECT = "Quick question about expenses at {company}"
+# Paragraph separator. Defined once so no tenant string ever contains markup.
+_P = "<br><br>"
 
 
-# --- Cold template --------------------------------------------------------
-# Hook first, product second, one ask, short signature. Everything except
-# {hook} is fixed so tone and structure cannot drift between leads.
-_COLD_BODY = (
-    '<div>Hi {first_name},<br><br>'
-    '{hook}<br><br>'
-    + PRODUCT_LINE + '<br><br>'
-    'Teams around your size usually get a few days a month back for whoever owns '
-    'finance. If that sounds useful, I can send over a short walkthrough. No call '
-    'needed unless you want one.<br><br>'
-    'And if this is not a priority right now, just say so and I will leave you be.<br><br>'
-    'Best,<br><b>' + SENDER_NAME + '</b><br>' + SENDER_TITLE + '<br>'
-    '<a href="' + BRACE_SITE + '">usebrace.com</a></div>'
-)
+def _signature(c, short=False):
+    """Sign-off. Follow-ups use the short form: by then they know who we are."""
+    if short:
+        return f"Best,<br>{c.SENDER_NAME}"
+    return (f"Best,<br><b>{c.SENDER_NAME}</b><br>{c.SENDER_TITLE}<br>"
+            f'<a href="{c.SITE_URL}">{c.SITE_LABEL}</a>')
 
 
-# --- F1 (first follow-up) -------------------------------------------------
-# Deliberately tiny. A follow-up that re-pitches reads as a broadcast; one that
-# just re-surfaces the thread reads like a person.
-_F1_BODY = (
-    '<div>Hi {first_name},<br><br>'
-    'Following up on my note about how {company} handles expenses.<br><br>'
-    'If it is not something you are looking at right now, no problem at all. If it '
-    'is, reply here and I will send the walkthrough over.<br><br>'
-    'Best,<br>' + SENDER_NAME + '</div>'
-)
-
-
-# --- F2 (final follow-up) -------------------------------------------------
-# {f2_content} is the middle paragraph, written per-lead and stored in the DB.
-# It is the one place a follow-up carries new, specific reasoning.
-_F2_BODY = (
-    '<div>Hi {first_name},<br><br>'
-    'Last note from me on this one.<br><br>'
-    '{f2_content}<br><br>'
-    'If the timing is wrong, I will close the loop here and wish you and the {company} '
-    'team well. If it is worth a look, reply and I will send the walkthrough.<br><br>'
-    'Best,<br>' + SENDER_NAME + '</div>'
-)
+def cold_subject(company):
+    """Subject for a cold email. Called at insert time, not at send time."""
+    return tenant.copy().COLD_SUBJECT.replace("{company}", company)
 
 
 def render_cold(placeholders):
     # `why_company` is the DB key; it carries the signal-grounded hook. The key
     # name is inherited from the schema and kept so the persistence layer stays
     # untouched — see the module docstring on bounded slots.
-    return _COLD_BODY.format(
-        first_name=placeholders["name"],
-        company=placeholders["company"],
-        hook=placeholders["why_company"],
-    )
+    c = tenant.copy()
+    first = placeholders["name"]
+    company = placeholders["company"]
+    hook = placeholders["why_company"]
+
+    body = _P.join([
+        f"Hi {first},",
+        hook,                       # the hook lands before any self-introduction
+        c.PRODUCT_LINE,
+        c.COLD_CTA,
+        c.COLD_OPT_OUT,
+        _signature(c),
+    ])
+    return f"<div>{body}</div>"
 
 
 def render_f1(placeholders):
-    return _F1_BODY.format(
-        first_name=placeholders["name"],
-        company=placeholders["company"],
-    )
+    c = tenant.copy()
+    first = placeholders["name"]
+    company = placeholders["company"]
+
+    body = _P.join([
+        f"Hi {first},",
+        c.F1_OPENER.replace("{company}", company),
+        c.F1_CLOSER,
+        _signature(c, short=True),
+    ])
+    return f"<div>{body}</div>"
 
 
 def render_f2(placeholders):
-    return _F2_BODY.format(
-        first_name=placeholders["name"],
-        company=placeholders["company"],
-        f2_content=placeholders["f2_content"],
-    )
+    # {f2_content} is the middle paragraph, written per-lead and stored in the
+    # DB. It is the one place a follow-up carries new, specific reasoning.
+    c = tenant.copy()
+    first = placeholders["name"]
+    company = placeholders["company"]
+
+    body = _P.join([
+        f"Hi {first},",
+        "Last note from me on this one.",
+        placeholders["f2_content"],
+        c.F2_CLOSING.replace("{company}", company),
+        _signature(c, short=True),
+    ])
+    return f"<div>{body}</div>"

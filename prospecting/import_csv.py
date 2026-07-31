@@ -18,10 +18,10 @@ Only `company`, `Work Email`, `first_name`, `designation`, `why_company` and
 carried for the email-finder handoff and dropped here.
 
 Usage:
-    python brace.py import runs/2026-07-30.csv
-    python brace.py import <csv> --dry-run          # show what would happen, write nothing
-    python brace.py import <csv> --db PATH           # target an alternate DB
-    python brace.py import <csv> --subject "..."     # override the default subject
+    python agent.py import runs/2026-07-30.csv
+    python agent.py import <csv> --dry-run          # show what would happen, write nothing
+    python agent.py import <csv> --db PATH           # target an alternate DB
+    python agent.py import <csv> --subject "..."     # override the default subject
 """
 
 import csv
@@ -30,19 +30,18 @@ import argparse
 from pathlib import Path
 
 from outreach import db
-from core.paths import BLACKLIST_PATH
-
-DEFAULT_SUBJECT = "Quick question about expenses at {company}"
+from core import tenant
 
 REQUIRED_COLUMNS = {"company", "first_name", "why_company", "f2_content", "Work Email"}
 
 
 def load_blacklist():
-    """Lowercased non-empty, non-comment lines from blacklist.txt."""
-    if not BLACKLIST_PATH.exists():
+    """Lowercased non-empty, non-comment lines from the tenant's blacklist."""
+    path = tenant.blacklist_path()
+    if not path.exists():
         return set()
     out = set()
-    for line in BLACKLIST_PATH.read_text(encoding="utf-8").splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         s = line.strip().lower()
         if s and not s.startswith("#"):
             out.add(s)
@@ -77,8 +76,13 @@ def main(argv=None):
     ap.add_argument("--db", dest="db_path", default=None)
     ap.add_argument("--dry-run", action="store_true",
                     help="report what would happen; write nothing")
-    ap.add_argument("--subject", default=DEFAULT_SUBJECT)
+    ap.add_argument("--subject", default=None,
+                    help="override the tenant's COLD_SUBJECT; may contain {company}")
     args = ap.parse_args(argv)
+
+    # Resolved here rather than as an argparse default so --help works on an
+    # unconfigured checkout, where loading a tenant would raise.
+    subject_template = args.subject or tenant.copy().COLD_SUBJECT
 
     path = Path(args.csv_path)
     if not path.exists():
@@ -149,7 +153,7 @@ def main(argv=None):
                 mails=[email],
                 # Subject may carry a {company} token — the only per-lead value
                 # in it. Anything else in the string is left untouched.
-                subject=args.subject.replace("{company}", company),
+                subject=subject_template.replace("{company}", company),
                 placeholders=placeholders,
                 db_path=args.db_path,
             )
@@ -164,7 +168,7 @@ def main(argv=None):
             print(f"  - {label}: {reason}")
     if not args.dry_run and inserted:
         print("\nThese are status='new' and will send on the next scheduled cold run.")
-        print("Review:  python brace.py leads list --status new")
+        print("Review:  python agent.py leads list --status new")
     return 0
 
 

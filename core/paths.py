@@ -30,8 +30,9 @@ LOGS_DIR = DATA_DIR / "logs"
 SCRAPES_DIR = RUNS_DIR / "scrapes"
 
 DB_PATH = DATA_DIR / "prospects.db"
-BLACKLIST_PATH = DATA_DIR / "blacklist.txt"
 WORKED_ACCOUNTS_PATH = DATA_DIR / "worked_accounts.csv"
+# The blacklist is per-tenant (a company's competitors are its own), so it
+# lives in the tenant folder: see core.tenant.blacklist_path().
 SAMPLE_CSV = RUNS_DIR / "sample-for-testing.csv"
 
 # --- runtime state -------------------------------------------------------
@@ -57,7 +58,7 @@ CONFIG_EXAMPLE = ROOT / "config.example.json"
 # --- code the agent reads -----------------------------------------------
 CONTEXT_DIR = ROOT / "context"
 SKILLS_DIR = ROOT / "skills"
-CLI = ROOT / "brace.py"
+CLI = ROOT / "agent.py"
 
 
 def ensure_dirs():

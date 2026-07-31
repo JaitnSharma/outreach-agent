@@ -19,7 +19,7 @@ smoke test, or "just one or two to see what it looks like", stop and use
 ```
 1. YOU (orchestrator): qualify accounts -> spawn 1 subagent per account
                        -> collect rows -> data/runs/<today>.csv
-2. YOU: python brace.py import data/runs/<today>.csv   -> prospects.db (status='new')
+2. YOU: python agent.py import data/runs/<today>.csv   -> prospects.db (status='new')
 3. The send engine (separate, not you): picks up status='new' and runs cold -> F1 -> F2
 ```
 
@@ -55,17 +55,17 @@ account already in the pipeline.
   Edit tool. Add rows only. This is what stops the next run rediscovering the
   same companies. **Never query `prospects.db` for this.**
 
-Also read `data/blacklist.txt` — never queue an account or domain matching any line
+Also read the tenant's `blacklist.txt` — never queue an account or domain matching any line
 (case-insensitive substring, matched against both name and domain).
 
 ---
 
 ## Before you start
 
-1. Read `context/company.md` — who Brace is, the ICP, who to contact, and the
+1. Read the tenant's `company.md` — who we sell for, the ICP, who to contact, and the
    four buying signals. This is the frame for every judgement below.
-2. Read `context/voice.md` — the hook has to sound like this.
-3. Read `data/worked_accounts.csv` and `data/blacklist.txt`.
+2. Read the tenant's `voice.md` — the hook has to sound like this.
+3. Read `data/worked_accounts.csv` and the tenant's `blacklist.txt`.
 
 Default batch: qualify ~15 accounts unless given a number. If given a number,
 that is the qualified-account target.
@@ -75,7 +75,7 @@ that is the qualified-account target.
 ## Stage 1 — qualify accounts (you, single-threaded)
 
 Goal: **a funded tech startup, 20-200 people, that recently got money or is
-visibly growing.** Full criteria are in `context/company.md`.
+visibly growing.** Full criteria are in the tenant's `company.md`.
 
 ### Hard filters — DROP if any fail
 
@@ -104,7 +104,7 @@ Scraping costs no tokens. Reading costs everything. Pull many source pages in
 one batched call:
 
 ```bash
-python brace.py scrape <funding-roundup-url> <vc-portfolio-url> ... --format json --out-dir data/runs/scrapes
+python agent.py scrape <funding-roundup-url> <vc-portfolio-url> ... --format json --out-dir data/runs/scrapes
 ```
 
 Funding roundups, VC portfolio pages and accelerator batch lists are dense — one
@@ -136,7 +136,7 @@ Spawn one subagent per qualified account, in parallel where the tooling allows.
 Give each one exactly this, with the packet filled in:
 
 ````
-You are researching ONE account for Brace's outbound pipeline. You have no other
+You are researching ONE account for an outbound pipeline. You have no other
 context — everything you need is here or in the two files named below.
 
 ACCOUNT PACKET (from orchestrator):
@@ -146,7 +146,8 @@ ACCOUNT PACKET (from orchestrator):
   funding:     <stage, amount, when>
   headcount:   <estimate + source>
 
-FIRST: read context/company.md and context/voice.md in this directory. They tell
+FIRST: run `python agent.py tenant --paths` and read the company.md and voice.md
+it names. They tell
 you who Brace sells to, who to contact, the four buying signals, and how the
 hook must sound. Do not skip this.
 
@@ -162,7 +163,7 @@ One batched call, exactly these four page types:
   * one recent funding or news post, if one exists
 
 ```bash
-python brace.py scrape <url1> <url2> <url3> <url4> --format json --out-dir data/runs/scrapes/<slug>
+python agent.py scrape <url1> <url2> <url3> <url4> --format json --out-dir data/runs/scrapes/<slug>
 ```
 
 Four page types is the BUDGET, not a floor to build on. Going deeper into docs,
@@ -197,7 +198,7 @@ contacts beat four padded ones. Never pad to hit a count.
 
 --- STEP 3 — find the signal (this is the actual job) ---
 For each contact, find ONE real, recent, checkable buying signal. The four that
-matter are in context/company.md: recent funding, hiring surge, expansion,
+matter are in the tenant's company.md: recent funding, hiring surge, expansion,
 stated pain.
 
 Rank what you find and use the single best one. A specific fact with a date
@@ -232,7 +233,7 @@ subset ("Co-Founder", not a guess between CTO and COO).
 You do not decide the address and you never write one yourself. Run this once
 per contact and use exactly what it prints:
 
-    python brace.py email-for --first <first_name> --domain <company_domain>
+    python agent.py email-for --first <first_name> --domain <company_domain>
 
 If it prints an address, that is the address. If it prints NOTHING, leave the
 Work Email field EMPTY. Empty is a correct answer here, not a failure to try
@@ -247,11 +248,11 @@ not worth that, ever.
 The mode is configured, not chosen by you. It may be generating placeholders
 that always bounce, leaving the field blank for a human, or calling a real
 lookup service. All three are correct behaviour and none of them are your call.
-`python brace.py email-for --mode` will tell you which is active if you want to
+`python agent.py email-for --mode` will tell you which is active if you want to
 report it accurately.
 
 --- STEP 6 — write the copy ---
-Two fields, both in the register of context/voice.md.
+Two fields, both in the register of the tenant's voice.md.
 
 `why_company` — THE HOOK. This is the opening line of the cold email, and it
 lands before the reader knows who we are. Rules:
@@ -332,11 +333,11 @@ full_name,first_name,company,designation,linkedin_url,company_domain,company_soc
 2. **Push to the DB.** Dry-run first, then for real:
 
 ```bash
-python brace.py import data/runs/<today>.csv --dry-run
-python brace.py import data/runs/<today>.csv
+python agent.py import data/runs/<today>.csv --dry-run
+python agent.py import data/runs/<today>.csv
 ```
 
-`brace.py import` gates every row (blank email, malformed email, duplicate,
+`agent.py import` gates every row (blank email, malformed email, duplicate,
 blacklist, empty hook). Do not re-validate by hand — run it and relay the
 summary it prints.
 
@@ -365,7 +366,7 @@ Dropped:
 - Old Startup — only signal is a 2024 raise, nothing since
 
 Next: rows are status='new'. The send engine picks them up on its next cold run.
-Review first:  python brace.py leads list --status new
+Review first:  python agent.py leads list --status new
 ```
 
 ---
@@ -374,9 +375,9 @@ Review first:  python brace.py leads list --status new
 
 - Run `python` (not `python3`). Windows paths.
 - **Never open a browser tool.** All net access goes through WebSearch, WebFetch,
-  or `brace.py scrape`. LinkedIn is behind an auth wall — when a profile cannot
+  or `agent.py scrape`. LinkedIn is behind an auth wall — when a profile cannot
   be found via search, leave the field EMPTY per the no-fabrication rule.
-- Page reads go through `brace.py scrape`, not WebFetch. Reserve WebFetch for
+- Page reads go through `agent.py scrape`, not WebFetch. Reserve WebFetch for
   pages the scraper fails on.
-- The DB is only ever touched through `brace.py import`. Never write
+- The DB is only ever touched through `agent.py import`. Never write
   `prospects.db` directly. Never touch Gmail.

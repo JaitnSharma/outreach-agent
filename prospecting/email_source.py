@@ -21,13 +21,13 @@ trust. The skill calls this script per contact and writes whatever it returns.
 
 Usage (the research agent calls it exactly like this):
 
-    python brace.py email-for --first priya --domain acmeops.com
+    python agent.py email-for --first priya --domain acmeops.com
 
 Prints the address on stdout, or nothing at all if the mode says there is no
 address to give. Exit 0 either way — an empty result is a valid, expected
 answer, not an error. Exit 2 means the configuration is broken.
 
-    python brace.py email-for --mode        prints the active mode and what it does
+    python agent.py email-for --mode        prints the active mode and what it does
 """
 
 import re

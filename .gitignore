@@ -6,7 +6,7 @@
 
 # 1. Local machine config: the real sending address and the paths to the OAuth
 #    credential files. This is the only file that identifies a human.
-#    Start from config.example.json, or run `python brace.py setup`.
+#    Start from config.example.json, or run `python agent.py setup`.
 config.json
 
 # 2. Python bytecode.
@@ -15,7 +15,7 @@ __pycache__/
 
 # 3. The database and logs.
 #
-#    These were tracked at one point. They cannot be, now that `brace.py demo`
+#    These were tracked at one point. They cannot be, now that `agent.py demo`
 #    is the first thing a new user runs: a pre-seeded prospects.db makes that
 #    first command report "skipped 3, duplicate" and insert nothing, which is a
 #    broken first impression of a working repo. It is regenerated in under a
